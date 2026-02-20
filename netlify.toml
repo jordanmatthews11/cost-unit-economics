@@ -1,0 +1,9 @@
+# Netlify config for Cost Unit Economics (static site)
+[build]
+  publish = "."
+  # No build command — static files only
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

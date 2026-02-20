@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cost Unit Economics Calculator</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <h1>Cost Unit Economics</h1>
+      <p class="subtitle">Calculate cost per project &amp; cost per response group across your teams</p>
+    </div>
+  </header>
+
+  <main>
+    <!-- Results Dashboard (top, always visible) -->
+    <section class="results-dashboard" id="results">
+      <div class="results-grid">
+        <div class="result-card total">
+          <span class="result-label">Total Cost</span>
+          <span class="result-value" id="totalCost">$0.00</span>
+        </div>
+        <div class="result-card primary">
+          <span class="result-label">Cost per Project</span>
+          <span class="result-value" id="costPerProject">$0.00</span>
+        </div>
+        <div class="result-card primary">
+          <span class="result-label">Cost per Response Group</span>
+          <span class="result-value" id="costPerResponse">$0.00</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Team Cost Inputs -->
+    <section class="teams-section">
+      <h2>Team Costs</h2>
+      <div class="teams-grid" id="teamsGrid">
+        <!-- Team cards are rendered by app.js -->
+      </div>
+    </section>
+
+    <!-- Per-Team Breakdown Table -->
+    <section class="breakdown-section" id="breakdownSection">
+      <h2>Per-Team Breakdown</h2>
+      <div class="table-wrapper">
+        <table id="breakdownTable">
+          <thead>
+            <tr>
+              <th>Team</th>
+              <th>Team Cost</th>
+              <th>% of Total</th>
+              <th>Projects</th>
+              <th>Cost / Project</th>
+              <th>Response Groups</th>
+              <th>Cost / Response Group</th>
+            </tr>
+          </thead>
+          <tbody id="breakdownBody">
+            <!-- Filled by app.js -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Cost Distribution Chart -->
+    <section class="chart-section">
+      <h2>Cost Distribution</h2>
+      <div class="chart-container" id="chartContainer">
+        <!-- Filled by app.js -->
+      </div>
+    </section>
+
+    <!-- Export -->
+    <section class="export-section">
+      <button class="btn btn-export" id="exportCsv">Export as CSV</button>
+      <button class="btn btn-copy" id="copyClipboard">Copy Summary</button>
+    </section>
+  </main>
+
+  <footer>
+    <p>Cost Unit Economics Calculator</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

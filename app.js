@@ -6,6 +6,7 @@
 const GOOGLE_CLIENT_ID = '25032009454-sitfdne7k6u6m38q5nj54idg1ghc6aef.apps.googleusercontent.com';
 
 const SESSION_KEY = 'cost_unit_economics_user';
+const AUTH_TOKEN_KEY = 'cost_unit_economics_token';
 
 let currentUser = null;
 
@@ -24,8 +25,18 @@ function setStoredUser(user) {
   sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
 }
 
+function setStoredToken(token) {
+  if (token) sessionStorage.setItem(AUTH_TOKEN_KEY, token);
+  else sessionStorage.removeItem(AUTH_TOKEN_KEY);
+}
+
+function getStoredToken() {
+  return sessionStorage.getItem(AUTH_TOKEN_KEY);
+}
+
 function clearStoredUser() {
   sessionStorage.removeItem(SESSION_KEY);
+  sessionStorage.removeItem(AUTH_TOKEN_KEY);
 }
 
 function parseJwtPayload(token) {
@@ -52,6 +63,7 @@ function showApp(user) {
   const emailEl = document.getElementById('headerUserEmail');
   if (emailEl) emailEl.textContent = user.email || 'Signed in';
   document.getElementById('signOutBtn').addEventListener('click', handleSignOut);
+  setupTabs();
   initCalculator();
 }
 
@@ -74,12 +86,14 @@ function renderGoogleButton() {
 }
 
 function handleCredentialResponse(response) {
-  const payload = response.credential ? parseJwtPayload(response.credential) : null;
+  const credential = response.credential;
+  const payload = credential ? parseJwtPayload(credential) : null;
   if (!payload) return showLogin();
   const user = {
     email: payload.email || '',
     name: payload.name || payload.email || '',
   };
+  setStoredToken(credential);
   showApp(user);
 }
 
@@ -91,6 +105,42 @@ function handleSignOut() {
   currentUser = null;
   document.getElementById('signOutBtn').replaceWith(document.getElementById('signOutBtn').cloneNode(true));
   showLogin();
+}
+
+function getAuthToken() {
+  return getStoredToken();
+}
+
+function setupTabs() {
+  const tabUE = document.getElementById('tabUnitEconomics');
+  const tabBills = document.getElementById('tabBills');
+  const panelUE = document.getElementById('panelUnitEconomics');
+  const panelBills = document.getElementById('panelBills');
+  const subtitle = document.getElementById('headerSubtitle');
+  if (!tabUE || !tabBills) return;
+  tabUE.addEventListener('click', () => {
+    tabUE.classList.add('active');
+    tabUE.setAttribute('aria-selected', 'true');
+    tabBills.classList.remove('active');
+    tabBills.setAttribute('aria-selected', 'false');
+    panelUE.classList.remove('app-hidden');
+    panelUE.setAttribute('aria-hidden', 'false');
+    panelBills.classList.add('app-hidden');
+    panelBills.setAttribute('aria-hidden', 'true');
+    if (subtitle) subtitle.textContent = 'Unit Economics & Bills';
+  });
+  tabBills.addEventListener('click', () => {
+    tabBills.classList.add('active');
+    tabBills.setAttribute('aria-selected', 'true');
+    tabUE.classList.remove('active');
+    tabUE.setAttribute('aria-selected', 'false');
+    panelBills.classList.remove('app-hidden');
+    panelBills.setAttribute('aria-hidden', 'false');
+    panelUE.classList.add('app-hidden');
+    panelUE.setAttribute('aria-hidden', 'true');
+    if (subtitle) subtitle.textContent = 'Bills & Expenses';
+    initBillsOnce();
+  });
 }
 
 function authInit() {
@@ -478,6 +528,226 @@ function showToast(message) {
   toast.textContent = message;
   toast.classList.add('show');
   setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// ---- Bills API ----
+
+async function apiFetch(path, options = {}) {
+  const token = getAuthToken();
+  if (!token) {
+    clearStoredUser();
+    currentUser = null;
+    showLogin();
+    return { ok: false, status: 401 };
+  }
+  const res = await fetch(path, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      Authorization: `Bearer ${token}`,
+      ...(options.body && typeof options.body === 'string' && !options.headers?.['Content-Type'] ? { 'Content-Type': 'application/json' } : {}),
+    },
+  });
+  if (res.status === 401) {
+    clearStoredUser();
+    currentUser = null;
+    showLogin();
+    return { ok: false, status: 401 };
+  }
+  return res;
+}
+
+let billsInitialized = false;
+let expensesList = [];
+
+async function loadExpenses() {
+  const status = document.getElementById('billsFilterStatus').value || '';
+  const category = document.getElementById('billsFilterCategory').value.trim() || '';
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (category) params.set('category', category);
+  const res = await apiFetch(`/api/expenses?${params}`);
+  if (!res.ok) return;
+  expensesList = await res.json();
+  renderBillsTable();
+}
+
+function renderBillsTable() {
+  const tbody = document.getElementById('billsTableBody');
+  const emptyEl = document.getElementById('billsEmpty');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  if (expensesList.length === 0) {
+    emptyEl.classList.remove('app-hidden');
+    return;
+  }
+  emptyEl.classList.add('app-hidden');
+  expensesList.forEach((e) => {
+    const tr = document.createElement('tr');
+    const amount = (e.amount_cents / 100).toFixed(2);
+    const dateStr = e.date ? new Date(e.date).toLocaleDateString() : '—';
+    tr.innerHTML = `
+      <td>${escapeHtml(e.vendor)}</td>
+      <td>$${amount}</td>
+      <td>${dateStr}</td>
+      <td>${escapeHtml(e.status)}</td>
+      <td>${escapeHtml(e.category || '—')}</td>
+      <td>${e.internal_bill_url ? `<a href="${escapeAttr(e.internal_bill_url)}" target="_blank" rel="noopener">View</a>` : '—'}</td>
+      <td>${e.third_party_invoice_url ? `<a href="${escapeAttr(e.third_party_invoice_url)}" target="_blank" rel="noopener">View</a>` : '—'}</td>
+      <td>
+        <button type="button" class="btn btn-small btn-edit" data-id="${escapeAttr(e.id)}">Edit</button>
+        <button type="button" class="btn btn-small btn-delete" data-id="${escapeAttr(e.id)}">Delete</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('.btn-edit').forEach((btn) => btn.addEventListener('click', () => openExpenseModal(btn.dataset.id)));
+  tbody.querySelectorAll('.btn-delete').forEach((btn) => btn.addEventListener('click', () => deleteExpenseById(btn.dataset.id)));
+}
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+function escapeAttr(s) {
+  if (s == null) return '';
+  return String(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function openExpenseModal(editId = null) {
+  const modal = document.getElementById('expenseModal');
+  const form = document.getElementById('expenseForm');
+  const title = document.getElementById('expenseModalTitle');
+  form.reset();
+  document.getElementById('expenseId').value = editId || '';
+  document.getElementById('expenseInternalBill').value = '';
+  document.getElementById('expenseThirdPartyInvoice').value = '';
+  document.getElementById('expenseInternalBillLabel').textContent = 'Choose file or attach later';
+  document.getElementById('expenseThirdPartyInvoiceLabel').textContent = 'Choose file or attach later';
+  document.getElementById('expenseInternalBillLink').classList.add('app-hidden');
+  document.getElementById('expenseThirdPartyInvoiceLink').classList.add('app-hidden');
+  if (editId) {
+    const e = expensesList.find((x) => x.id === editId);
+    if (e) {
+      title.textContent = 'Edit expense';
+      document.getElementById('expenseVendor').value = e.vendor;
+      document.getElementById('expenseAmount').value = (e.amount_cents / 100).toFixed(2);
+      document.getElementById('expenseDate').value = e.date ? e.date.slice(0, 10) : '';
+      document.getElementById('expenseStatus').value = e.status;
+      document.getElementById('expenseCategory').value = e.category || '';
+      document.getElementById('expenseNotes').value = e.notes || '';
+      if (e.internal_bill_url) {
+        document.getElementById('expenseInternalBillLink').href = e.internal_bill_url;
+        document.getElementById('expenseInternalBillLink').classList.remove('app-hidden');
+      }
+      if (e.third_party_invoice_url) {
+        document.getElementById('expenseThirdPartyInvoiceLink').href = e.third_party_invoice_url;
+        document.getElementById('expenseThirdPartyInvoiceLink').classList.remove('app-hidden');
+      }
+    }
+  } else {
+    title.textContent = 'Add expense';
+    document.getElementById('expenseDate').value = new Date().toISOString().slice(0, 10);
+  }
+  modal.classList.remove('app-hidden');
+}
+
+function closeExpenseModal() {
+  document.getElementById('expenseModal').classList.add('app-hidden');
+}
+
+async function uploadFile(fileInput) {
+  if (!fileInput.files || !fileInput.files[0]) return null;
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  const token = getAuthToken();
+  if (!token) return null;
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  if (res.status === 401) {
+    clearStoredUser();
+    currentUser = null;
+    showLogin();
+    return null;
+  }
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.url || null;
+}
+
+async function saveExpenseForm(e) {
+  e.preventDefault();
+  const id = document.getElementById('expenseId').value;
+  const vendor = document.getElementById('expenseVendor').value.trim();
+  const amount = parseFloat(document.getElementById('expenseAmount').value);
+  const date = document.getElementById('expenseDate').value;
+  const status = document.getElementById('expenseStatus').value;
+  const category = document.getElementById('expenseCategory').value.trim();
+  const notes = document.getElementById('expenseNotes').value.trim();
+  const amount_cents = Math.round(amount * 100);
+  let internal_bill_url = null;
+  let third_party_invoice_url = null;
+  const internalInput = document.getElementById('expenseInternalBill');
+  const thirdInput = document.getElementById('expenseThirdPartyInvoice');
+  if (internalInput.files && internalInput.files[0]) {
+    internal_bill_url = await uploadFile(internalInput);
+    if (!internal_bill_url) showToast('Failed to upload internal bill');
+  } else if (id) {
+    const existing = expensesList.find((x) => x.id === id);
+    if (existing) internal_bill_url = existing.internal_bill_url;
+  }
+  if (thirdInput.files && thirdInput.files[0]) {
+    third_party_invoice_url = await uploadFile(thirdInput);
+    if (!third_party_invoice_url) showToast('Failed to upload 3rd party invoice');
+  } else if (id) {
+    const existing = expensesList.find((x) => x.id === id);
+    if (existing) third_party_invoice_url = existing.third_party_invoice_url;
+  }
+  const payload = { vendor, amount_cents, date, status, category: category || null, notes: notes || null };
+  if (internal_bill_url !== null) payload.internal_bill_url = internal_bill_url;
+  if (third_party_invoice_url !== null) payload.third_party_invoice_url = third_party_invoice_url;
+  if (id) {
+    const res = await apiFetch(`/api/expenses/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+    if (!res.ok) { showToast('Failed to update'); return; }
+    showToast('Updated');
+  } else {
+    const res = await apiFetch('/api/expenses', { method: 'POST', body: JSON.stringify(payload) });
+    if (!res.ok) { showToast('Failed to add'); return; }
+    showToast('Added');
+  }
+  closeExpenseModal();
+  loadExpenses();
+}
+
+async function deleteExpenseById(id) {
+  if (!confirm('Delete this expense?')) return;
+  const res = await apiFetch(`/api/expenses/${id}`, { method: 'DELETE' });
+  if (!res.ok) { showToast('Failed to delete'); return; }
+  showToast('Deleted');
+  loadExpenses();
+}
+
+function initBillsOnce() {
+  if (billsInitialized) return;
+  billsInitialized = true;
+  document.getElementById('billsAddBtn').addEventListener('click', () => openExpenseModal());
+  document.getElementById('billsFilterStatus').addEventListener('change', loadExpenses);
+  document.getElementById('billsFilterCategory').addEventListener('input', () => { clearTimeout(window._billsFilterTimeout); window._billsFilterTimeout = setTimeout(loadExpenses, 300); });
+  document.getElementById('expenseModalCancel').addEventListener('click', closeExpenseModal);
+  document.querySelector('.modal-backdrop').addEventListener('click', closeExpenseModal);
+  document.getElementById('expenseForm').addEventListener('submit', saveExpenseForm);
+  document.getElementById('expenseInternalBill').addEventListener('change', function () {
+    document.getElementById('expenseInternalBillLabel').textContent = this.files && this.files[0] ? this.files[0].name : 'Choose file or attach later';
+  });
+  document.getElementById('expenseThirdPartyInvoice').addEventListener('change', function () {
+    document.getElementById('expenseThirdPartyInvoiceLabel').textContent = this.files && this.files[0] ? this.files[0].name : 'Choose file or attach later';
+  });
+  loadExpenses();
 }
 
 // ---- Initialize ----

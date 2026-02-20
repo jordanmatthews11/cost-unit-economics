@@ -1,6 +1,6 @@
-# Cost Unit Economics Calculator
+# Ops Finance Hub
 
-A browser-based dashboard for calculating cost-per-project and cost-per-response-group across your teams. **Sign-in with Google (Gmail) is required** to use the app.
+Dual-purpose ops finance app: **Unit Economics** (cost per project and per response group) and **Bills & Expenses** (expense tracker with file attachments). Sign-in with Google (Gmail) is required.
 
 ## Google sign-in setup
 
@@ -22,6 +22,17 @@ The app uses [Google Identity Services](https://developers.google.com/identity/g
 
 Until you set a valid `GOOGLE_CLIENT_ID`, the sign-in button may not work or may show a console error.
 
+## Bills & Expenses (backend)
+
+The Bills tab uses Vercel serverless API + database + file storage. To enable it:
+
+1. **Database**: Create a Postgres database (e.g. [Vercel Postgres](https://vercel.com/docs/storage/vercel-postgres) or [Neon](https://neon.tech)) and set `POSTGRES_URL` in your Vercel project environment variables.
+2. **Run the schema once**: In your database SQL console, run the contents of [scripts/schema.sql](scripts/schema.sql) to create the `expenses` table.
+3. **File storage**: Create a [Vercel Blob](https://vercel.com/docs/storage/vercel-blob) store and set `BLOB_READ_WRITE_TOKEN` in Vercel.
+4. **API auth**: Set `GOOGLE_CLIENT_ID` in Vercel environment variables (same value as in `app.js`) so the API can verify Google ID tokens.
+
+Local dev: run `npm install` and `vercel dev`; use `vercel env pull` to get env vars.
+
 ## Teams
 
 - Project Management
@@ -30,10 +41,8 @@ Until you set a valid `GOOGLE_CLIENT_ID`, the sign-in button may not work or may
 
 ## How to Use
 
-1. Open `index.html` in any modern browser (Chrome, Safari, Firefox, Edge).
-2. For each team, enter **Projects** and **Response Groups** (survey responses), then cost data — headcount, average salary, tools, overhead, and other costs.
-3. Results update in real time as you type.
-4. Use **Export as CSV** or **Copy Summary** to share your results.
+- **Unit Economics tab**: Enter Projects and Response Groups per team, then cost data (headcount, salary, tools, overhead). Results and cost-per-project / cost-per-response-group update in real time. Export as CSV or Copy Summary.
+- **Bills & Expenses tab**: Add expenses with vendor, amount, date, status, category, notes, and optional PDFs (internal bill and 3rd party invoice). Filter by status/category; edit or delete entries; attach files when adding or later via Edit.
 
 ## Get a public URL
 
@@ -48,6 +57,7 @@ Cost per Project = Grand Total / Total Projects
 Cost per Response Group = Grand Total / Total Response Groups
 ```
 
-## No Dependencies
+## Dependencies
 
-This is a standalone HTML/CSS/JS app — no build tools, servers, or installations required.
+- Frontend: none (vanilla HTML/CSS/JS).
+- Backend (Bills): `@vercel/postgres`, `@vercel/blob`, `google-auth-library`, `busboy` (see `package.json`). Run `npm install` for local API dev.

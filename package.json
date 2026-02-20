@@ -1,0 +1,15 @@
+{
+  "name": "ops-finance-hub",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ops Finance Hub - Unit Economics & Bills",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "@vercel/postgres": "^0.10.0",
+    "@vercel/blob": "^0.23.0",
+    "google-auth-library": "^9.0.0",
+    "busboy": "^1.6.0"
+  }
+}

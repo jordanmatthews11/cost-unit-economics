@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cost Unit Economics Calculator</title>
+  <title>Ops Finance Hub</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
   <div id="loginContainer" class="login-container">
     <div class="login-card">
-      <h1 class="login-title">Cost Unit Economics</h1>
+      <h1 class="login-title">Ops Finance Hub</h1>
       <p class="login-subtitle">Sign in with your Google account to continue</p>
       <div id="googleSignInButton"></div>
     </div>
@@ -20,8 +20,8 @@
     <header>
       <div class="header-content">
         <div class="header-left">
-          <h1>Cost Unit Economics</h1>
-          <p class="subtitle">Calculate cost per project &amp; cost per response group across your teams</p>
+          <h1>Ops Finance Hub</h1>
+          <p class="subtitle" id="headerSubtitle">Unit Economics &amp; Bills</p>
         </div>
         <div class="header-user" id="headerUser">
           <span class="header-user-email" id="headerUserEmail"></span>
@@ -30,7 +30,12 @@
       </div>
     </header>
 
-  <main>
+    <nav class="tab-bar" role="tablist">
+      <button type="button" class="tab-btn active" role="tab" id="tabUnitEconomics" aria-selected="true">Unit Economics</button>
+      <button type="button" class="tab-btn" role="tab" id="tabBills" aria-selected="false">Bills &amp; Expenses</button>
+    </nav>
+
+  <main id="panelUnitEconomics" class="tab-panel" role="tabpanel">
     <!-- Results Dashboard (top, always visible) -->
     <section class="results-dashboard" id="results">
       <div class="results-grid">
@@ -95,9 +100,101 @@
     </section>
   </main>
 
+  <main id="panelBills" class="tab-panel app-hidden" role="tabpanel" aria-hidden="true">
+    <section class="bills-section">
+      <div class="bills-toolbar">
+        <div class="bills-filters">
+          <select id="billsFilterStatus" class="filter-select">
+            <option value="">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="paid">Paid</option>
+          </select>
+          <input type="text" id="billsFilterCategory" class="filter-input" placeholder="Filter by category">
+        </div>
+        <button type="button" class="btn btn-primary" id="billsAddBtn">Add expense</button>
+      </div>
+      <div class="table-wrapper">
+        <table class="bills-table" id="billsTable">
+          <thead>
+            <tr>
+              <th>Vendor</th>
+              <th>Amount</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Category</th>
+              <th>Internal bill</th>
+              <th>3rd party invoice</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="billsTableBody"></tbody>
+        </table>
+      </div>
+      <p class="bills-empty" id="billsEmpty">No expenses yet. Add one to get started.</p>
+    </section>
+  </main>
+
   <footer>
-    <p>Cost Unit Economics Calculator</p>
+    <p>Ops Finance Hub</p>
   </footer>
+
+  <div id="expenseModal" class="modal app-hidden" aria-modal="true" aria-labelledby="expenseModalTitle">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <h2 id="expenseModalTitle" class="modal-title">Add expense</h2>
+      <form id="expenseForm">
+        <input type="hidden" id="expenseId">
+        <div class="form-row">
+          <label for="expenseVendor">Vendor</label>
+          <input type="text" id="expenseVendor" required>
+        </div>
+        <div class="form-row">
+          <label for="expenseAmount">Amount ($)</label>
+          <input type="number" id="expenseAmount" step="0.01" min="0" required>
+        </div>
+        <div class="form-row">
+          <label for="expenseDate">Date</label>
+          <input type="date" id="expenseDate" required>
+        </div>
+        <div class="form-row">
+          <label for="expenseStatus">Status</label>
+          <select id="expenseStatus">
+            <option value="pending">Pending</option>
+            <option value="paid">Paid</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label for="expenseCategory">Category</label>
+          <input type="text" id="expenseCategory" list="expenseCategoryList" placeholder="e.g. Software, Travel">
+          <datalist id="expenseCategoryList"></datalist>
+        </div>
+        <div class="form-row">
+          <label for="expenseNotes">Notes</label>
+          <textarea id="expenseNotes" rows="2"></textarea>
+        </div>
+        <div class="form-row">
+          <label>Internal bill (PDF)</label>
+          <div class="file-slot">
+            <input type="file" id="expenseInternalBill" accept=".pdf,application/pdf" class="file-input">
+            <span class="file-slot-label" id="expenseInternalBillLabel">Choose file or attach later</span>
+            <a href="#" id="expenseInternalBillLink" class="file-link app-hidden" target="_blank" rel="noopener">View</a>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>3rd party invoice (PDF)</label>
+          <div class="file-slot">
+            <input type="file" id="expenseThirdPartyInvoice" accept=".pdf,application/pdf" class="file-input">
+            <span class="file-slot-label" id="expenseThirdPartyInvoiceLabel">Choose file or attach later</span>
+            <a href="#" id="expenseThirdPartyInvoiceLink" class="file-link app-hidden" target="_blank" rel="noopener">View</a>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="expenseModalCancel">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
   </div>
 
   <script src="app.js"></script>

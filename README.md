@@ -50,11 +50,11 @@ Do this once. No SQL—Firestore creates the `expenses` collection when the app 
 FIREBASE_SERVICE_ACCOUNT_JSON
 ```
 
-For **Value**, paste the entire JSON file contents. Environments: check **Production** (and **Preview** if needed). Click **Save**.
+For **Value**, paste the entire JSON file contents. If the field truncates your paste, use **one line** (minify the JSON in a text editor so there are no line breaks), or paste the **base64** of the JSON (e.g. run `base64 -i your-file.json | tr -d '\n'` and paste the output). Environments: check **Production** (and **Preview** if needed). Click **Save**.
 
 **Step 6: Redeploy** — **Deployments** → **⋯** on latest → **Redeploy** (or push a commit).
 
-**Index error?** — If Firestore shows an error with a link to create an index, open the link and click **Create index**. Wait ~1 min and retry.
+**Index error?** — When you first load Bills & Expenses, Firestore may require a composite index. The app will show a toast and open the index-creation link; click **Create index** on that page, wait ~1–2 minutes, then refresh the app.
 
 ## Troubleshooting
 

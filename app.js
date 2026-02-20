@@ -568,7 +568,11 @@ async function showExpensesLoadErrorToast(res) {
       const data = await res.json();
       if (data.code === 'GOOGLE_CLIENT_ID_MISSING') msg = 'Sign-in not configured. Set GOOGLE_CLIENT_ID in Vercel.';
       else if (data.code === 'POSTGRES_URL_MISSING' || data.code === 'FIRESTORE_NOT_CONFIGURED') msg = 'Database not configured. Set up Firestore: add FIREBASE_SERVICE_ACCOUNT_JSON in Vercel (see README).';
-      else msg = 'Server configuration error. Check Vercel env and logs.';
+      else if (data.code === 'FIRESTORE_INVALID_JSON') msg = 'Invalid Firebase JSON in Vercel. Paste the entire file as one line, or use base64 (see README).';
+      else if (data.code === 'FIRESTORE_INDEX_REQUIRED') {
+        msg = 'Firestore index required. Opening link to create it…';
+        if (data.indexUrl) window.open(data.indexUrl, '_blank');
+      } else msg = 'Server configuration error. Check Vercel env and logs.';
     } catch (_) {}
   } else if (res.status >= 500) msg = 'Server configuration error. Check Vercel env and logs.';
   showToast(msg);
@@ -577,16 +581,38 @@ async function showExpensesLoadErrorToast(res) {
 async function loadExpenses() {
   const status = document.getElementById('billsFilterStatus').value || '';
   const category = document.getElementById('billsFilterCategory').value.trim() || '';
+  const year = document.getElementById('billsFilterYear').value || '';
+  const month = document.getElementById('billsFilterMonth').value || '';
+  const vendor = document.getElementById('billsFilterVendor').value.trim() || '';
   const params = new URLSearchParams();
   if (status) params.set('status', status);
   if (category) params.set('category', category);
+  if (year) params.set('year', year);
+  if (month) params.set('month', month);
+  if (vendor) params.set('vendor', vendor);
   const res = await apiFetch(`/api/expenses?${params}`);
   if (!res.ok) {
     await showExpensesLoadErrorToast(res);
     return;
   }
   expensesList = await res.json();
+  populateBillsYearFilter();
   renderBillsTable();
+  renderBillsMetrics(expensesList);
+}
+
+function populateBillsYearFilter() {
+  const sel = document.getElementById('billsFilterYear');
+  if (!sel) return;
+  const currentYear = new Date().getFullYear();
+  const existingOpts = Array.from(sel.querySelectorAll('option')).map((o) => o.value);
+  const yearsFromData = [...new Set(expensesList.map((e) => (e.date || '').slice(0, 4)).filter(Boolean))].sort((a, b) => b - a);
+  const yearSet = new Set(yearsFromData);
+  for (let y = currentYear + 2; y >= currentYear - 2; y--) yearSet.add(String(y));
+  const years = Array.from(yearSet).sort((a, b) => Number(b) - Number(a));
+  const keepAll = existingOpts.includes('');
+  if (keepAll && years.length === Array.from(sel.options).length - 1 && years.every((y, i) => sel.options[i + 1].value === y)) return;
+  sel.innerHTML = '<option value="">All years</option>' + years.map((y) => `<option value="${escapeAttr(y)}">${escapeHtml(y)}</option>`).join('');
 }
 
 function renderBillsTable() {
@@ -609,7 +635,6 @@ function renderBillsTable() {
       <td>${dateStr}</td>
       <td>${escapeHtml(e.status)}</td>
       <td>${escapeHtml(e.category || '—')}</td>
-      <td>${e.internal_bill_url ? `<a href="${escapeAttr(e.internal_bill_url)}" target="_blank" rel="noopener">View</a>` : '—'}</td>
       <td>${e.third_party_invoice_url ? `<a href="${escapeAttr(e.third_party_invoice_url)}" target="_blank" rel="noopener">View</a>` : '—'}</td>
       <td>
         <button type="button" class="btn btn-small btn-edit" data-id="${escapeAttr(e.id)}">Edit</button>
@@ -620,6 +645,48 @@ function renderBillsTable() {
   });
   tbody.querySelectorAll('.btn-edit').forEach((btn) => btn.addEventListener('click', () => openExpenseModal(btn.dataset.id)));
   tbody.querySelectorAll('.btn-delete').forEach((btn) => btn.addEventListener('click', () => deleteExpenseById(btn.dataset.id)));
+}
+
+function formatYearMonth(ym) {
+  if (!ym || ym.length < 7) return ym;
+  const [y, m] = [ym.slice(0, 4), parseInt(ym.slice(5, 7), 10)];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${months[m - 1] || ''} ${y}`;
+}
+
+function renderBillsMetrics(list) {
+  const el = document.getElementById('billsMetrics');
+  if (!el) return;
+  if (list.length === 0) {
+    el.innerHTML = '<p class="bills-metrics-empty">No data</p>';
+    el.classList.remove('app-hidden');
+    return;
+  }
+  const byYear = {};
+  const byMonth = {};
+  const byVendor = {};
+  list.forEach((e) => {
+    const cents = e.amount_cents || 0;
+    const year = (e.date || '').slice(0, 4);
+    const ym = (e.date || '').slice(0, 7);
+    if (year) byYear[year] = (byYear[year] || 0) + cents;
+    if (ym) byMonth[ym] = (byMonth[ym] || 0) + cents;
+    const v = e.vendor || '—';
+    byVendor[v] = (byVendor[v] || 0) + cents;
+  });
+  const fmt = (c) => '$' + (c / 100).toFixed(2);
+  const yearLines = Object.entries(byYear).sort((a, b) => b[0].localeCompare(a[0])).map(([y, c]) => `${y}: ${fmt(c)}`).join(', ');
+  const monthLines = Object.entries(byMonth).sort((a, b) => b[0].localeCompare(a[0])).map(([ym, c]) => `${formatYearMonth(ym)}: ${fmt(c)}`).join(', ');
+  const vendorLines = Object.entries(byVendor).sort((a, b) => b[1] - a[1]).map(([v, c]) => `${escapeHtml(v)}: ${fmt(c)}`).join('; ');
+  el.innerHTML = `
+    <div class="bills-metrics-inner">
+      <h3 class="bills-metrics-title">Summary</h3>
+      <p class="bills-metrics-row"><strong>By year:</strong> ${yearLines || '—'}</p>
+      <p class="bills-metrics-row"><strong>By month:</strong> ${monthLines || '—'}</p>
+      <p class="bills-metrics-row"><strong>By vendor:</strong> ${vendorLines || '—'}</p>
+    </div>
+  `;
+  el.classList.remove('app-hidden');
 }
 
 function escapeHtml(s) {
@@ -659,8 +726,56 @@ function parseCsvLine(line) {
   return out;
 }
 
-/** Parse BillList-style CSV; return array of { vendor, amount_cents, date, status, category, notes }. */
-function parseBillsCsv(text) {
+/** Detect CSV format from header line. Returns 'billcom' | 'tipalti' | null. */
+function detectBillsCsvFormat(headerLine) {
+  const header = parseCsvLine(headerLine);
+  const has = (name) => header.some((h) => (h || '').trim() === name);
+  if (has('Transaction ID') && (has('Merchant') || has('Clean Merchant Name')) && has('Date (UTC)')) return 'billcom';
+  if (has('Payee Name') && has('Bill Date')) return 'tipalti';
+  return null;
+}
+
+/** Parse Bill.com transaction export CSV; return array of { vendor, amount_cents, date, status, category, notes }. */
+function parseBillComCsv(text) {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return [];
+  const header = parseCsvLine(lines[0]);
+  const get = (row, name) => {
+    const i = header.indexOf(name);
+    return i >= 0 ? (row[i] || '').trim() : '';
+  };
+  const rows = [];
+  for (let r = 1; r < lines.length; r++) {
+    const row = parseCsvLine(lines[r]);
+    if (row.length < 2) continue;
+    const merchant = get(row, 'Merchant');
+    const cleanMerchant = get(row, 'Clean Merchant Name');
+    const vendor = (cleanMerchant || merchant || '').trim();
+    if (!vendor) continue;
+    const amountStr = get(row, 'Amount');
+    const amountNum = parseFloat(amountStr.replace(/[^0-9.-]/g, '')) || 0;
+    const amount_cents = Math.round(Math.abs(amountNum) * 100);
+    const dateUtc = get(row, 'Date (UTC)');
+    const date = dateUtc && dateUtc.length >= 10 ? dateUtc.slice(0, 10) : new Date().toISOString().slice(0, 10);
+    const statusStr = (get(row, 'Status') || '').toLowerCase();
+    const status = statusStr.includes('approved') ? 'paid' : 'pending';
+    const categoryCol = header.includes('2. Category') ? get(row, '2. Category') : get(row, 'Budget');
+    const category = (categoryCol || '').trim() || null;
+    const notes = (get(row, 'Notes') || get(row, 'Transaction ID') || '').trim() || null;
+    rows.push({
+      vendor,
+      amount_cents,
+      date,
+      status,
+      category,
+      notes,
+    });
+  }
+  return rows;
+}
+
+/** Parse Tipalti BillList-style CSV; return array of { vendor, amount_cents, date, status, category, notes }. */
+function parseTipaltiBillsCsv(text) {
   const lines = text.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return [];
   const header = parseCsvLine(lines[0]);
@@ -712,6 +827,16 @@ function parseBillsCsv(text) {
   return rows;
 }
 
+/** Parse CSV from either Bill.com or Tipalti; return array of { vendor, amount_cents, date, status, category, notes }. */
+function parseBillsCsv(text) {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return [];
+  const format = detectBillsCsvFormat(lines[0]);
+  if (format === 'billcom') return parseBillComCsv(text);
+  if (format === 'tipalti') return parseTipaltiBillsCsv(text);
+  return parseTipaltiBillsCsv(text);
+}
+
 /**
  * Parse expense fields from a bill filename.
  * Handles names like "Bill #B9265733-0158 from Opines, LLC re...@storesight.com - Field Agent Inc Mail.pdf"
@@ -743,11 +868,8 @@ function openExpenseModal(editId = null) {
   const title = document.getElementById('expenseModalTitle');
   form.reset();
   document.getElementById('expenseId').value = editId || '';
-  document.getElementById('expenseInternalBill').value = '';
   document.getElementById('expenseThirdPartyInvoice').value = '';
-  document.getElementById('expenseInternalBillLabel').textContent = 'Choose file';
   document.getElementById('expenseThirdPartyInvoiceLabel').textContent = 'Choose file or attach later';
-  document.getElementById('expenseInternalBillLink').classList.add('app-hidden');
   document.getElementById('expenseThirdPartyInvoiceLink').classList.add('app-hidden');
   if (editId) {
     const e = expensesList.find((x) => x.id === editId);
@@ -759,10 +881,6 @@ function openExpenseModal(editId = null) {
       document.getElementById('expenseStatus').value = e.status;
       document.getElementById('expenseCategory').value = e.category || '';
       document.getElementById('expenseNotes').value = e.notes || '';
-      if (e.internal_bill_url) {
-        document.getElementById('expenseInternalBillLink').href = e.internal_bill_url;
-        document.getElementById('expenseInternalBillLink').classList.remove('app-hidden');
-      }
       if (e.third_party_invoice_url) {
         document.getElementById('expenseThirdPartyInvoiceLink').href = e.third_party_invoice_url;
         document.getElementById('expenseThirdPartyInvoiceLink').classList.remove('app-hidden');
@@ -811,17 +929,8 @@ async function saveExpenseForm(e) {
   const category = document.getElementById('expenseCategory').value.trim();
   const notes = document.getElementById('expenseNotes').value.trim();
   const amount_cents = Math.round(amount * 100);
-  let internal_bill_url = null;
   let third_party_invoice_url = null;
-  const internalInput = document.getElementById('expenseInternalBill');
   const thirdInput = document.getElementById('expenseThirdPartyInvoice');
-  if (internalInput.files && internalInput.files[0]) {
-    internal_bill_url = await uploadFile(internalInput);
-    if (!internal_bill_url) showToast('Failed to upload internal bill');
-  } else if (id) {
-    const existing = expensesList.find((x) => x.id === id);
-    if (existing) internal_bill_url = existing.internal_bill_url;
-  }
   if (thirdInput.files && thirdInput.files[0]) {
     third_party_invoice_url = await uploadFile(thirdInput);
     if (!third_party_invoice_url) showToast('Failed to upload 3rd party invoice');
@@ -830,7 +939,6 @@ async function saveExpenseForm(e) {
     if (existing) third_party_invoice_url = existing.third_party_invoice_url;
   }
   const payload = { vendor, amount_cents, date, status, category: category || null, notes: notes || null };
-  if (internal_bill_url !== null) payload.internal_bill_url = internal_bill_url;
   if (third_party_invoice_url !== null) payload.third_party_invoice_url = third_party_invoice_url;
   if (id) {
     const res = await apiFetch(`/api/expenses/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
@@ -853,6 +961,17 @@ async function deleteExpenseById(id) {
   loadExpenses();
 }
 
+function matchKey(e) {
+  return `${e.vendor}|${(e.date || '').slice(0, 10)}|${(e.notes || '').trim()}`;
+}
+
+function expenseFieldsEqual(a, b) {
+  return (a.amount_cents || 0) === (b.amount_cents || 0)
+    && (a.status || '') === (b.status || '')
+    && (a.category || '') === (b.category || '')
+    && (a.notes || '').trim() === (b.notes || '').trim();
+}
+
 async function importBillsFromCsv(file) {
   const text = await new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -871,15 +990,45 @@ async function importBillsFromCsv(file) {
     return;
   }
   const existing = await res.json();
-  const key = (e) => `${e.vendor}|${e.notes || ''}|${e.amount_cents}|${e.date || ''}`;
-  const existingKeys = new Set(existing.map(key));
+  const existingByKey = new Map(existing.map((e) => [matchKey(e), e]));
   let added = 0;
+  let updated = 0;
   let skipped = 0;
   let failed = 0;
   let firstErrorMsg = null;
   for (const row of rows) {
-    if (existingKeys.has(key(row))) {
-      skipped += 1;
+    const key = matchKey(row);
+    const existingRow = existingByKey.get(key);
+    if (existingRow) {
+      if (expenseFieldsEqual(existingRow, row)) {
+        skipped += 1;
+        continue;
+      }
+      const patchRes = await apiFetch(`/api/expenses/${existingRow.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          vendor: row.vendor,
+          amount_cents: row.amount_cents,
+          date: row.date,
+          status: row.status,
+          category: row.category,
+          notes: row.notes,
+        }),
+      });
+      if (patchRes.ok) {
+        updated += 1;
+        existingByKey.set(key, { ...existingRow, ...row });
+      } else {
+        failed += 1;
+        if (firstErrorMsg == null) {
+          try {
+            const data = await patchRes.json();
+            firstErrorMsg = data.error || data.detail || null;
+          } catch {
+            firstErrorMsg = null;
+          }
+        }
+      }
       continue;
     }
     const createRes = await apiFetch('/api/expenses', {
@@ -893,29 +1042,35 @@ async function importBillsFromCsv(file) {
         notes: row.notes,
       }),
     });
-    if (createRes.ok) {
+    let createData;
+    try {
+      createData = await createRes.json();
+    } catch {
+      createData = null;
+    }
+    if (createRes.ok && createData) {
       added += 1;
-      existingKeys.add(key(row));
+      existingByKey.set(key, createData);
     } else {
       failed += 1;
-      if (firstErrorMsg == null) {
-        try {
-          const data = await createRes.json();
-          firstErrorMsg = data.error || data.detail || null;
-        } catch {
-          firstErrorMsg = null;
-        }
-      }
+      if (firstErrorMsg == null) firstErrorMsg = (createData && (createData.error || createData.detail)) || null;
     }
   }
-  if (added > 0) loadExpenses();
-  if (skipped === rows.length && failed === 0) showToast('All rows already exist; nothing new imported.');
-  else if (failed > 0) {
-    const msg = failed === rows.length
-      ? (firstErrorMsg ? `Import failed: ${firstErrorMsg}` : 'Some rows could not be saved (server error).')
-      : `Imported ${added} new expense${added !== 1 ? 's' : ''}; ${failed} failed${firstErrorMsg ? `: ${firstErrorMsg}` : '.'}`;
+  if (added > 0 || updated > 0) loadExpenses();
+  if (failed > 0) {
+    const parts = [];
+    if (added) parts.push(`${added} added`);
+    if (updated) parts.push(`${updated} updated`);
+    if (skipped) parts.push(`${skipped} unchanged`);
+    const msg = (parts.length ? `Imported: ${parts.join(', ')}. ` : '') + `${failed} failed${firstErrorMsg ? `: ${firstErrorMsg}` : '.'}`;
     showToast(msg);
-  } else showToast(`Imported ${added} new expense${added !== 1 ? 's' : ''}${skipped ? ` (${skipped} skipped as duplicates)` : ''}.`);
+  } else {
+    const parts = [];
+    if (added) parts.push(`${added} added`);
+    if (updated) parts.push(`${updated} updated`);
+    if (skipped) parts.push(`${skipped} unchanged`);
+    showToast(parts.length ? `Imported: ${parts.join(', ')}.` : 'No rows to import.');
+  }
 }
 
 function initBillsOnce() {
@@ -935,23 +1090,13 @@ function initBillsOnce() {
     });
   }
   document.getElementById('billsFilterStatus').addEventListener('change', loadExpenses);
+  document.getElementById('billsFilterYear').addEventListener('change', loadExpenses);
+  document.getElementById('billsFilterMonth').addEventListener('change', loadExpenses);
+  document.getElementById('billsFilterVendor').addEventListener('input', () => { clearTimeout(window._billsFilterTimeout); window._billsFilterTimeout = setTimeout(loadExpenses, 300); });
   document.getElementById('billsFilterCategory').addEventListener('input', () => { clearTimeout(window._billsFilterTimeout); window._billsFilterTimeout = setTimeout(loadExpenses, 300); });
   document.getElementById('expenseModalCancel').addEventListener('click', closeExpenseModal);
   document.querySelector('.modal-backdrop').addEventListener('click', closeExpenseModal);
   document.getElementById('expenseForm').addEventListener('submit', saveExpenseForm);
-  document.getElementById('expenseInternalBill').addEventListener('change', function () {
-    const label = document.getElementById('expenseInternalBillLabel');
-    label.textContent = this.files && this.files[0] ? this.files[0].name : 'Choose file';
-    if (this.files && this.files[0]) {
-      const { vendor, notes } = parseExpenseFromFilename(this.files[0].name);
-      const vendorEl = document.getElementById('expenseVendor');
-      const notesEl = document.getElementById('expenseNotes');
-      const dateEl = document.getElementById('expenseDate');
-      if (vendor && !vendorEl.value.trim()) vendorEl.value = vendor;
-      if (notes && !notesEl.value.trim()) notesEl.value = notes;
-      if (!dateEl.value) dateEl.value = new Date().toISOString().slice(0, 10);
-    }
-  });
   document.getElementById('expenseThirdPartyInvoice').addEventListener('change', function () {
     document.getElementById('expenseThirdPartyInvoiceLabel').textContent = this.files && this.files[0] ? this.files[0].name : 'Choose file or attach later';
   });

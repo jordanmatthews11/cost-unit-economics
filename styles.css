@@ -247,18 +247,18 @@ header {
 .bills-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.88rem;
+  font-size: 0.8rem;
 }
 
 .bills-table th,
 .bills-table td {
-  padding: 0.65rem 0.75rem;
+  padding: 0.4rem 0.5rem;
   text-align: left;
   border-bottom: 1px solid var(--color-border);
 }
 
 .bills-table th {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -269,8 +269,48 @@ header {
   background: var(--color-bg);
 }
 
+.bills-quicklinks {
+  margin: 0.5rem 0 1rem 0;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.bills-quicklinks a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.bills-quicklinks a:hover {
+  text-decoration: underline;
+}
+
+.bills-quicklinks-sep {
+  margin: 0 0.5rem;
+  color: var(--color-border);
+}
+
+.bills-metrics {
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.bills-metrics-title {
+  font-size: 0.9rem;
+  margin: 0 0 0.5rem 0;
+  color: var(--color-text-muted);
+}
+
+.bills-metrics-row {
+  margin: 0.25rem 0;
+}
+
+.bills-metrics-empty {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
 .btn-small {
-  padding: 0.35rem 0.6rem;
+  padding: 0.25rem 0.5rem;
   font-size: 0.8rem;
   margin-right: 0.35rem;
 }

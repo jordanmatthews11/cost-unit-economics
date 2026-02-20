@@ -11,6 +11,15 @@ module.exports = async function handler(req, res) {
     res.status(503).json({ error: 'Server misconfigured', code: 'FIRESTORE_NOT_CONFIGURED' });
     return;
   }
+  try {
+    db.parseFirebaseCredential(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  } catch (parseErr) {
+    res.status(503).json({
+      error: parseErr.message || 'Invalid Firebase JSON',
+      code: 'FIRESTORE_INVALID_JSON',
+    });
+    return;
+  }
   const user = await getAuthUser(req);
   if (!user) {
     res.status(401).json({ error: 'Unauthorized' });

@@ -109,6 +109,25 @@
             <option value="pending">Pending</option>
             <option value="paid">Paid</option>
           </select>
+          <select id="billsFilterYear" class="filter-select" aria-label="Filter by year">
+            <option value="">All years</option>
+          </select>
+          <select id="billsFilterMonth" class="filter-select" aria-label="Filter by month">
+            <option value="">All months</option>
+            <option value="1">Jan</option>
+            <option value="2">Feb</option>
+            <option value="3">Mar</option>
+            <option value="4">Apr</option>
+            <option value="5">May</option>
+            <option value="6">Jun</option>
+            <option value="7">Jul</option>
+            <option value="8">Aug</option>
+            <option value="9">Sep</option>
+            <option value="10">Oct</option>
+            <option value="11">Nov</option>
+            <option value="12">Dec</option>
+          </select>
+          <input type="text" id="billsFilterVendor" class="filter-input" placeholder="Filter by vendor">
           <input type="text" id="billsFilterCategory" class="filter-input" placeholder="Filter by category">
         </div>
         <div class="bills-actions">
@@ -117,6 +136,12 @@
           <button type="button" class="btn btn-primary" id="billsAddBtn">Add expense</button>
         </div>
       </div>
+      <p class="bills-quicklinks">
+        Get expenses: <a href="https://spend.bill.com/" target="_blank" rel="noopener">Bill.com</a>
+        <span class="bills-quicklinks-sep">|</span>
+        <a href="https://hub.tipalti.com/" target="_blank" rel="noopener">Tipalti</a>
+      </p>
+      <div id="billsMetrics" class="bills-metrics" aria-live="polite"></div>
       <div class="table-wrapper">
         <table class="bills-table" id="billsTable">
           <thead>
@@ -126,7 +151,6 @@
               <th>Date</th>
               <th>Status</th>
               <th>Category</th>
-              <th>Internal bill</th>
               <th>3rd party invoice</th>
               <th>Actions</th>
             </tr>
@@ -148,15 +172,6 @@
       <h2 id="expenseModalTitle" class="modal-title">Add expense</h2>
       <form id="expenseForm">
         <input type="hidden" id="expenseId">
-        <div class="form-row form-row-upload-first">
-          <label>Internal bill (PDF)</label>
-          <p class="upload-first-hint">Upload your bill first to auto-fill the form.</p>
-          <div class="file-slot">
-            <input type="file" id="expenseInternalBill" accept=".pdf,application/pdf" class="file-input">
-            <span class="file-slot-label" id="expenseInternalBillLabel">Choose file</span>
-            <a href="#" id="expenseInternalBillLink" class="file-link app-hidden" target="_blank" rel="noopener">View</a>
-          </div>
-        </div>
         <div class="form-row">
           <label for="expenseVendor">Vendor</label>
           <input type="text" id="expenseVendor" required>

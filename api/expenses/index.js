@@ -16,15 +16,39 @@ module.exports = async function handler(req, res) {
     res.status(503).json({ error: 'Server misconfigured', code: 'FIRESTORE_NOT_CONFIGURED' });
     return;
   }
+  try {
+    db.parseFirebaseCredential(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  } catch (parseErr) {
+    res.status(503).json({
+      error: parseErr.message || 'Invalid Firebase JSON',
+      code: 'FIRESTORE_INVALID_JSON',
+    });
+    return;
+  }
 
   if (req.method === 'GET') {
     try {
       const status = req.query.status || null;
       const category = req.query.category || null;
-      const rows = await db.getExpensesByUserId(userId, status, category);
+      const year = req.query.year || null;
+      const month = req.query.month || null;
+      const vendor = req.query.vendor || null;
+      const rows = await db.getExpensesByUserId(userId, status, category, year, month, vendor);
       res.status(200).json(rows);
     } catch (err) {
       console.error('GET expenses error:', err);
+      const msg = (err && err.message) ? String(err.message) : '';
+      const details = (err && err.details) ? String(err.details) : '';
+      const full = msg + details;
+      const indexMatch = full.match(/https:\/\/console\.firebase\.google\.com[^\s'"]+/);
+      if (full.includes('requires an index') && indexMatch) {
+        res.status(503).json({
+          error: 'Firestore index required. Create it using the link.',
+          code: 'FIRESTORE_INDEX_REQUIRED',
+          indexUrl: indexMatch[0],
+        });
+        return;
+      }
       const payload = { error: 'Failed to fetch expenses' };
       if (process.env.NODE_ENV !== 'production' && err && err.message) {
         payload.detail = err.message;
@@ -72,6 +96,18 @@ module.exports = async function handler(req, res) {
       res.status(201).json(row);
     } catch (err) {
       console.error('POST expenses error:', err);
+      const msg = (err && err.message) ? String(err.message) : '';
+      const details = (err && err.details) ? String(err.details) : '';
+      const full = msg + details;
+      const indexMatch = full.match(/https:\/\/console\.firebase\.google\.com[^\s'"]+/);
+      if (full.includes('requires an index') && indexMatch) {
+        res.status(503).json({
+          error: 'Firestore index required. Create it using the link.',
+          code: 'FIRESTORE_INDEX_REQUIRED',
+          indexUrl: indexMatch[0],
+        });
+        return;
+      }
       const payload = { error: 'Failed to create expense' };
       if (process.env.NODE_ENV !== 'production' && err && err.message) {
         payload.detail = err.message;

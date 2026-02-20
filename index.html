@@ -111,7 +111,11 @@
           </select>
           <input type="text" id="billsFilterCategory" class="filter-input" placeholder="Filter by category">
         </div>
-        <button type="button" class="btn btn-primary" id="billsAddBtn">Add expense</button>
+        <div class="bills-actions">
+          <input type="file" id="billsCsvInput" accept=".csv,text/csv" class="app-hidden" aria-label="Import CSV">
+          <button type="button" class="btn btn-secondary" id="billsImportCsvBtn">Import CSV</button>
+          <button type="button" class="btn btn-primary" id="billsAddBtn">Add expense</button>
+        </div>
       </div>
       <div class="table-wrapper">
         <table class="bills-table" id="billsTable">

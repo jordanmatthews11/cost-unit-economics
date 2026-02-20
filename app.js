@@ -616,6 +616,85 @@ function escapeAttr(s) {
   return String(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+/** Parse a single line of CSV respecting quoted fields. */
+function parseCsvLine(line) {
+  const out = [];
+  let i = 0;
+  while (i < line.length) {
+    if (line[i] === '"') {
+      i += 1;
+      let field = '';
+      while (i < line.length) {
+        if (line[i] === '"') {
+          i += 1;
+          if (line[i] === '"') { field += '"'; i += 1; }
+          else break;
+        } else { field += line[i]; i += 1; }
+      }
+      out.push(field);
+    } else {
+      let field = '';
+      while (i < line.length && line[i] !== ',') { field += line[i]; i += 1; }
+      out.push(field.trim());
+      if (line[i] === ',') i += 1;
+    }
+  }
+  return out;
+}
+
+/** Parse BillList-style CSV; return array of { vendor, amount_cents, date, status, category, notes }. */
+function parseBillsCsv(text) {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return [];
+  const header = parseCsvLine(lines[0]);
+  const get = (row, name) => {
+    const i = header.indexOf(name);
+    return i >= 0 ? (row[i] || '').trim() : '';
+  };
+  const monthNames = 'Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec'.split(',');
+  const parseBillDate = (s) => {
+    if (!s) return '';
+    const parts = s.split('-').map((p) => p.trim());
+    if (parts.length !== 3) return '';
+    const day = parseInt(parts[0], 10);
+    const monthIdx = monthNames.indexOf(parts[1]);
+    const year = parseInt(parts[2], 10);
+    if (isNaN(day) || monthIdx < 0 || isNaN(year)) return '';
+    const d = new Date(year, monthIdx, day);
+    if (isNaN(d.getTime())) return '';
+    return d.toISOString().slice(0, 10);
+  };
+  const rows = [];
+  for (let r = 1; r < lines.length; r++) {
+    const row = parseCsvLine(lines[r]);
+    if (row.length < 2) continue;
+    const payeeName = get(row, 'Payee Name');
+    const billDate = get(row, 'Bill Date');
+    const invoiceNumber = get(row, 'Invoice Number');
+    const billStatus = get(row, 'Bill Status');
+    const paymentStatus = get(row, 'Payment Status');
+    const amountStr = get(row, 'Amount');
+    const description = get(row, 'Description');
+    if (!payeeName) continue;
+    const amount = parseFloat(amountStr.replace(/[^0-9.-]/g, '')) || 0;
+    const amount_cents = Math.round(amount * 100);
+    const date = parseBillDate(billDate);
+    let status = 'pending';
+    const statusLower = (billStatus + ' ' + paymentStatus).toLowerCase();
+    if (statusLower.includes('paid')) status = 'paid';
+    else if (statusLower.includes('pending') || statusLower.includes('unpaid')) status = 'pending';
+    rows.push({
+      vendor: payeeName,
+      amount_cents,
+      date: date || new Date().toISOString().slice(0, 10),
+      status,
+      category: description || null,
+      notes: invoiceNumber || null,
+    });
+  }
+  return rows;
+}
+
 /**
  * Parse expense fields from a bill filename.
  * Handles names like "Bill #B9265733-0158 from Opines, LLC re...@storesight.com - Field Agent Inc Mail.pdf"
@@ -757,10 +836,70 @@ async function deleteExpenseById(id) {
   loadExpenses();
 }
 
+async function importBillsFromCsv(file) {
+  const text = await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(new Error('Failed to read file'));
+    r.readAsText(file, 'UTF-8');
+  });
+  const rows = parseBillsCsv(text);
+  if (rows.length === 0) {
+    showToast('No valid rows in CSV');
+    return;
+  }
+  const res = await apiFetch('/api/expenses');
+  if (!res.ok) {
+    showToast('Could not load existing expenses');
+    return;
+  }
+  const existing = await res.json();
+  const key = (e) => `${e.vendor}|${e.notes || ''}|${e.amount_cents}|${e.date || ''}`;
+  const existingKeys = new Set(existing.map(key));
+  let added = 0;
+  let skipped = 0;
+  for (const row of rows) {
+    if (existingKeys.has(key(row))) {
+      skipped += 1;
+      continue;
+    }
+    const createRes = await apiFetch('/api/expenses', {
+      method: 'POST',
+      body: JSON.stringify({
+        vendor: row.vendor,
+        amount_cents: row.amount_cents,
+        date: row.date,
+        status: row.status,
+        category: row.category,
+        notes: row.notes,
+      }),
+    });
+    if (createRes.ok) {
+      added += 1;
+      existingKeys.add(key(row));
+    }
+  }
+  if (added > 0) loadExpenses();
+  if (skipped === rows.length) showToast('All rows already exist; nothing new imported.');
+  else showToast(`Imported ${added} new expense${added !== 1 ? 's' : ''}${skipped ? ` (${skipped} skipped as duplicates)` : ''}.`);
+}
+
 function initBillsOnce() {
   if (billsInitialized) return;
   billsInitialized = true;
   document.getElementById('billsAddBtn').addEventListener('click', () => openExpenseModal());
+  const csvInput = document.getElementById('billsCsvInput');
+  const importCsvBtn = document.getElementById('billsImportCsvBtn');
+  if (importCsvBtn && csvInput) {
+    importCsvBtn.addEventListener('click', () => csvInput.click());
+    csvInput.addEventListener('change', function () {
+      const file = this.files && this.files[0];
+      if (file) {
+        importBillsFromCsv(file);
+        this.value = '';
+      }
+    });
+  }
   document.getElementById('billsFilterStatus').addEventListener('change', loadExpenses);
   document.getElementById('billsFilterCategory').addEventListener('input', () => { clearTimeout(window._billsFilterTimeout); window._billsFilterTimeout = setTimeout(loadExpenses, 300); });
   document.getElementById('expenseModalCancel').addEventListener('click', closeExpenseModal);

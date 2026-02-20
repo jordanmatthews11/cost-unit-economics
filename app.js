@@ -774,7 +774,7 @@ function parseBillComCsv(text) {
   return rows;
 }
 
-/** Parse Tipalti BillList-style CSV; return array of { vendor, amount_cents, date, status, category, notes }. */
+/** Parse Tipalti BillList-style CSV; return array of { vendor, amount_cents, date, status, category, notes }. Uses "Amount" (total), not "Amount due". */
 function parseTipaltiBillsCsv(text) {
   const lines = text.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return [];
@@ -782,6 +782,13 @@ function parseTipaltiBillsCsv(text) {
   const get = (row, name) => {
     const i = header.indexOf(name);
     return i >= 0 ? (row[i] || '').trim() : '';
+  };
+  // Use "Amount" (total bill amount) only; do not use "Amount due"
+  const amountColIndex = header.findIndex((h) => (h || '').trim() === 'Amount');
+  const amountDueColIndex = header.findIndex((h) => (h || '').trim() === 'Amount due');
+  const getAmountStr = (row) => {
+    if (amountColIndex >= 0 && amountColIndex !== amountDueColIndex) return (row[amountColIndex] || '').trim();
+    return get(row, 'Amount');
   };
   const monthNames = 'Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec'.split(',');
   const parseBillDate = (s) => {
@@ -805,7 +812,7 @@ function parseTipaltiBillsCsv(text) {
     const invoiceNumber = get(row, 'Invoice Number');
     const billStatus = get(row, 'Bill Status');
     const paymentStatus = get(row, 'Payment Status');
-    const amountStr = get(row, 'Amount');
+    const amountStr = getAmountStr(row);
     const description = get(row, 'Description');
     if (!payeeName) continue;
     const amount = parseFloat(amountStr.replace(/[^0-9.-]/g, '')) || 0;

@@ -269,6 +269,18 @@ header {
   background: var(--color-bg);
 }
 
+.bills-th-checkbox,
+.bills-td-checkbox {
+  width: 2rem;
+  min-width: 2rem;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.bills-row-checkbox {
+  cursor: pointer;
+}
+
 .bills-quicklinks {
   margin: 0.5rem 0 1rem 0;
   font-size: 0.875rem;

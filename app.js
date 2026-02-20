@@ -559,6 +559,7 @@ async function apiFetch(path, options = {}) {
 
 let billsInitialized = false;
 let expensesList = [];
+let selectedExpenseIds = new Set();
 
 async function showExpensesLoadErrorToast(res) {
   let msg = 'Could not load existing expenses';
@@ -622,14 +623,21 @@ function renderBillsTable() {
   tbody.innerHTML = '';
   if (expensesList.length === 0) {
     emptyEl.classList.remove('app-hidden');
+    selectedExpenseIds.clear();
+    const selectAll = document.getElementById('billsSelectAll');
+    if (selectAll) selectAll.checked = false;
+    updateBillsDeleteSelectedButton();
     return;
   }
   emptyEl.classList.add('app-hidden');
+  selectedExpenseIds = new Set([...selectedExpenseIds].filter((id) => expensesList.some((e) => e.id === id)));
   expensesList.forEach((e) => {
     const tr = document.createElement('tr');
     const amount = (e.amount_cents / 100).toFixed(2);
     const dateStr = e.date ? new Date(e.date).toLocaleDateString() : '—';
+    const checked = selectedExpenseIds.has(e.id) ? ' checked' : '';
     tr.innerHTML = `
+      <td class="bills-td-checkbox"><input type="checkbox" class="bills-row-checkbox" data-id="${escapeAttr(e.id)}"${checked} aria-label="Select row"></td>
       <td>${escapeHtml(e.vendor)}</td>
       <td>$${amount}</td>
       <td>${dateStr}</td>
@@ -645,6 +653,92 @@ function renderBillsTable() {
   });
   tbody.querySelectorAll('.btn-edit').forEach((btn) => btn.addEventListener('click', () => openExpenseModal(btn.dataset.id)));
   tbody.querySelectorAll('.btn-delete').forEach((btn) => btn.addEventListener('click', () => deleteExpenseById(btn.dataset.id)));
+  tbody.querySelectorAll('.bills-row-checkbox').forEach((cb) => {
+    cb.addEventListener('change', function () {
+      const id = this.dataset.id;
+      if (this.checked) selectedExpenseIds.add(id);
+      else selectedExpenseIds.delete(id);
+      syncBillsSelectAllCheckbox();
+      updateBillsDeleteSelectedButton();
+    });
+  });
+  syncBillsSelectAllCheckbox();
+  updateBillsDeleteSelectedButton();
+}
+
+function syncBillsSelectAllCheckbox() {
+  const selectAll = document.getElementById('billsSelectAll');
+  if (!selectAll) return;
+  const checkboxes = document.querySelectorAll('.bills-row-checkbox');
+  const checked = document.querySelectorAll('.bills-row-checkbox:checked');
+  selectAll.checked = checkboxes.length > 0 && checked.length === checkboxes.length;
+  selectAll.indeterminate = checked.length > 0 && checked.length < checkboxes.length;
+}
+
+function updateBillsDeleteSelectedButton() {
+  const btn = document.getElementById('billsDeleteSelectedBtn');
+  if (!btn) return;
+  btn.disabled = selectedExpenseIds.size === 0;
+  btn.textContent = selectedExpenseIds.size > 0 ? `Delete selected (${selectedExpenseIds.size})` : 'Delete selected';
+}
+
+async function deleteSelectedExpenses() {
+  if (selectedExpenseIds.size === 0) {
+    showToast('No rows selected');
+    return;
+  }
+  const n = selectedExpenseIds.size;
+  if (!confirm(`Delete ${n} selected expense${n !== 1 ? 's' : ''}?`)) return;
+  const ids = [...selectedExpenseIds];
+  let ok = 0;
+  let failed = 0;
+  for (const id of ids) {
+    const res = await apiFetch(`/api/expenses/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (res.ok) ok += 1;
+    else failed += 1;
+  }
+  selectedExpenseIds.clear();
+  loadExpenses();
+  if (failed > 0) showToast(`Deleted ${ok}, ${failed} failed`);
+  else showToast(`Deleted ${ok}`);
+}
+
+function exportBillsToCsv() {
+  if (expensesList.length === 0) {
+    showToast('No data to export');
+    return;
+  }
+  const header = ['Vendor', 'Amount', 'Date', 'Status', 'Category', 'Notes', '3rd party invoice URL'];
+  const escapeCsv = (v) => {
+    const s = v == null ? '' : String(v);
+    if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  };
+  const rows = [
+    header.map(escapeCsv).join(','),
+    ...expensesList.map((e) =>
+      [
+        e.vendor,
+        (e.amount_cents / 100).toFixed(2),
+        (e.date || '').slice(0, 10),
+        e.status,
+        e.category || '',
+        e.notes || '',
+        e.third_party_invoice_url || '',
+      ]
+        .map(escapeCsv)
+        .join(',')
+    ),
+  ];
+  const csv = rows.join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `expenses-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Exported');
 }
 
 function formatYearMonth(ym) {
@@ -962,8 +1056,19 @@ async function saveExpenseForm(e) {
 
 async function deleteExpenseById(id) {
   if (!confirm('Delete this expense?')) return;
-  const res = await apiFetch(`/api/expenses/${id}`, { method: 'DELETE' });
-  if (!res.ok) { showToast('Failed to delete'); return; }
+  const res = await apiFetch(`/api/expenses/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!res.ok) {
+    let msg = 'Failed to delete';
+    try {
+      const data = await res.json();
+      if (res.status === 404) msg = data.error || 'Expense not found';
+      else if (data.error || data.detail) msg = data.error || data.detail;
+    } catch {
+      if (res.status === 404) msg = 'Expense not found';
+    }
+    showToast(msg);
+    return;
+  }
   showToast('Deleted');
   loadExpenses();
 }
@@ -1096,6 +1201,18 @@ function initBillsOnce() {
       }
     });
   }
+  document.getElementById('billsSelectAll').addEventListener('change', function () {
+    const checkboxes = document.querySelectorAll('.bills-row-checkbox');
+    const checked = this.checked;
+    checkboxes.forEach((cb) => {
+      cb.checked = checked;
+      if (checked) selectedExpenseIds.add(cb.dataset.id);
+      else selectedExpenseIds.delete(cb.dataset.id);
+    });
+    updateBillsDeleteSelectedButton();
+  });
+  document.getElementById('billsDeleteSelectedBtn').addEventListener('click', deleteSelectedExpenses);
+  document.getElementById('billsExportBtn').addEventListener('click', exportBillsToCsv);
   document.getElementById('billsFilterStatus').addEventListener('change', loadExpenses);
   document.getElementById('billsFilterYear').addEventListener('change', loadExpenses);
   document.getElementById('billsFilterMonth').addEventListener('change', loadExpenses);

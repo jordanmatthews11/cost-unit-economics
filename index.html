@@ -133,6 +133,8 @@
         <div class="bills-actions">
           <input type="file" id="billsCsvInput" accept=".csv,text/csv" class="app-hidden" aria-label="Import CSV">
           <button type="button" class="btn btn-secondary" id="billsImportCsvBtn">Import CSV</button>
+          <button type="button" class="btn btn-secondary" id="billsDeleteSelectedBtn" disabled>Delete selected</button>
+          <button type="button" class="btn btn-secondary" id="billsExportBtn">Export</button>
           <button type="button" class="btn btn-primary" id="billsAddBtn">Add expense</button>
         </div>
       </div>
@@ -146,6 +148,7 @@
         <table class="bills-table" id="billsTable">
           <thead>
             <tr>
+              <th class="bills-th-checkbox"><input type="checkbox" id="billsSelectAll" aria-label="Select all rows"></th>
               <th>Vendor</th>
               <th>Amount</th>
               <th>Date</th>

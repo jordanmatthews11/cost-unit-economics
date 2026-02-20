@@ -2,8 +2,14 @@ const { getAuthUser } = require('../../lib/auth');
 const db = require('../../lib/db');
 
 function getIdFromRequest(req) {
-  const match = req.url && req.url.match(/\/api\/expenses\/([a-zA-Z0-9._-]+)/);
-  return match ? match[1] : null;
+  if (!req.url) return null;
+  try {
+    const pathname = new URL(req.url).pathname;
+    const match = pathname.match(/\/api\/expenses\/([^/]+)$/);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
 }
 
 module.exports = async function handler(req, res) {

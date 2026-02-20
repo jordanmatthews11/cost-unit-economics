@@ -858,6 +858,8 @@ async function importBillsFromCsv(file) {
   const existingKeys = new Set(existing.map(key));
   let added = 0;
   let skipped = 0;
+  let failed = 0;
+  let firstErrorMsg = null;
   for (const row of rows) {
     if (existingKeys.has(key(row))) {
       skipped += 1;
@@ -877,11 +879,26 @@ async function importBillsFromCsv(file) {
     if (createRes.ok) {
       added += 1;
       existingKeys.add(key(row));
+    } else {
+      failed += 1;
+      if (firstErrorMsg == null) {
+        try {
+          const data = await createRes.json();
+          firstErrorMsg = data.error || data.detail || null;
+        } catch {
+          firstErrorMsg = null;
+        }
+      }
     }
   }
   if (added > 0) loadExpenses();
-  if (skipped === rows.length) showToast('All rows already exist; nothing new imported.');
-  else showToast(`Imported ${added} new expense${added !== 1 ? 's' : ''}${skipped ? ` (${skipped} skipped as duplicates)` : ''}.`);
+  if (skipped === rows.length && failed === 0) showToast('All rows already exist; nothing new imported.');
+  else if (failed > 0) {
+    const msg = failed === rows.length
+      ? (firstErrorMsg ? `Import failed: ${firstErrorMsg}` : 'Some rows could not be saved (server error).')
+      : `Imported ${added} new expense${added !== 1 ? 's' : ''}; ${failed} failed${firstErrorMsg ? `: ${firstErrorMsg}` : '.'}`;
+    showToast(msg);
+  } else showToast(`Imported ${added} new expense${added !== 1 ? 's' : ''}${skipped ? ` (${skipped} skipped as duplicates)` : ''}.`);
 }
 
 function initBillsOnce() {

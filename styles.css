@@ -11,18 +11,24 @@
 }
 
 :root {
-  --color-bg: #f4f6f9;
-  --color-surface: #ffffff;
-  --color-border: #e2e6ed;
-  --color-text: #1a1d23;
-  --color-text-muted: #6b7280;
-  --color-primary: #2563eb;
-  --color-primary-light: #eff6ff;
-  --color-accent-green: #059669;
-  --color-accent-green-light: #ecfdf5;
-  --color-accent-purple: #7c3aed;
-  --color-accent-orange: #ea580c;
-  --color-accent-teal: #0891b2;
+  --color-bg: #F4F9FF;
+  --color-surface: #FFFFFF;
+  --color-border: #C5D1F0;
+  --color-text: #000000;
+  --color-text-muted: #34508A;
+  --color-primary: #6D36FF;
+  --color-primary-light: #D9E2FF;
+  --color-primary-hover: #463572;
+  --color-primary-focus: rgba(109, 54, 255, 0.2);
+  --color-on-primary: #FFFFFF;
+  --color-accent-green: #81D994;
+  --color-accent-green-light: #E8F6EB;
+  --color-accent-purple: #6E328C;
+  --color-accent-orange: #FFA450;
+  --color-accent-teal: #34508A;
+  --color-danger: #D60046;
+  --color-danger-bg: #FDF2F4;
+  --color-danger-border: #F8C9D4;
   --radius: 12px;
   --radius-sm: 8px;
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
@@ -100,8 +106,8 @@ body {
 /* ---- Header ---- */
 
 header {
-  background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
-  color: #fff;
+  background: linear-gradient(135deg, #463572 0%, #6D36FF 100%);
+  color: var(--color-on-primary);
   padding: 2rem 1.5rem;
 }
 
@@ -141,7 +147,7 @@ header {
   font-size: 0.8rem;
   font-weight: 600;
   background: rgba(255, 255, 255, 0.2);
-  color: #fff;
+  color: var(--color-on-primary);
   border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -277,18 +283,18 @@ header {
 
 .btn-edit:hover {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .btn-delete {
-  background: #fef2f2;
-  color: #b91c1c;
-  border: 1px solid #fecaca;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger-border);
 }
 
 .btn-delete:hover {
-  background: #b91c1c;
-  color: #fff;
+  background: var(--color-danger);
+  color: var(--color-on-primary);
 }
 
 .bills-empty {
@@ -304,11 +310,11 @@ header {
 
 .btn-primary {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .btn-primary:hover {
-  background: #1d4ed8;
+  background: var(--color-primary-hover);
 }
 
 .btn-secondary {
@@ -570,14 +576,14 @@ h2 {
   font-size: 0.95rem;
   font-family: var(--font);
   color: var(--color-text);
-  background: #fff;
+  background: var(--color-surface);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .team-card .input-row input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 0 0 3px var(--color-primary-focus);
 }
 
 .team-footer {
@@ -714,7 +720,7 @@ tbody tr:hover {
 .chart-bar-fill span {
   font-size: 0.78rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--color-on-primary);
   white-space: nowrap;
 }
 
@@ -747,20 +753,20 @@ tbody tr:hover {
 
 .btn-export {
   background: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .btn-export:hover {
-  background: #1d4ed8;
+  background: var(--color-primary-hover);
 }
 
 .btn-copy {
   background: var(--color-text);
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .btn-copy:hover {
-  background: #374151;
+  background: var(--color-text-muted);
 }
 
 /* ---- Footer ---- */
@@ -821,7 +827,7 @@ input[type="number"] {
   bottom: 2rem;
   right: 2rem;
   background: var(--color-text);
-  color: #fff;
+  color: var(--color-on-primary);
   padding: 0.75rem 1.25rem;
   border-radius: var(--radius-sm);
   font-size: 0.85rem;

@@ -17,24 +17,44 @@ module.exports = async function handler(req, res) {
       res.status(200).json(rows);
     } catch (err) {
       console.error('GET expenses error:', err);
-      res.status(500).json({ error: 'Failed to fetch expenses' });
+      const payload = { error: 'Failed to fetch expenses' };
+      if (process.env.NODE_ENV !== 'production' && err && err.message) {
+        payload.detail = err.message;
+      }
+      res.status(500).json(payload);
     }
     return;
   }
 
   if (req.method === 'POST') {
+    let body;
     try {
-      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-      const { vendor, amount_cents, date, status, category, notes, internal_bill_url, third_party_invoice_url } = body;
-      if (!vendor || amount_cents == null || !date || !status) {
-        res.status(400).json({ error: 'Missing required fields: vendor, amount_cents, date, status' });
-        return;
-      }
+      body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    } catch (parseErr) {
+      res.status(400).json({ error: 'Invalid JSON' });
+      return;
+    }
+    const { vendor, amount_cents, date, status, category, notes, internal_bill_url, third_party_invoice_url } = body || {};
+    if (!String(vendor).trim() || amount_cents == null || !date || !status) {
+      res.status(400).json({ error: 'Missing required fields: vendor, amount_cents, date, status' });
+      return;
+    }
+    const amountNum = Math.round(Number(amount_cents));
+    if (!Number.isFinite(amountNum)) {
+      res.status(400).json({ error: 'amount_cents must be a number' });
+      return;
+    }
+    const dateStr = String(date).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      res.status(400).json({ error: 'date must be YYYY-MM-DD' });
+      return;
+    }
+    try {
       const row = await db.createExpense({
         user_id: userId,
-        vendor,
-        amount_cents: Math.round(Number(amount_cents)),
-        date,
+        vendor: String(vendor).trim(),
+        amount_cents: amountNum,
+        date: dateStr,
         status: status === 'paid' ? 'paid' : 'pending',
         category: category || null,
         notes: notes || null,
@@ -44,7 +64,11 @@ module.exports = async function handler(req, res) {
       res.status(201).json(row);
     } catch (err) {
       console.error('POST expenses error:', err);
-      res.status(500).json({ error: 'Failed to create expense' });
+      const payload = { error: 'Failed to create expense' };
+      if (process.env.NODE_ENV !== 'production' && err && err.message) {
+        payload.detail = err.message;
+      }
+      res.status(500).json(payload);
     }
     return;
   }

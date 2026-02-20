@@ -560,6 +560,20 @@ async function apiFetch(path, options = {}) {
 let billsInitialized = false;
 let expensesList = [];
 
+async function showExpensesLoadErrorToast(res) {
+  let msg = 'Could not load existing expenses';
+  if (res.status === 401) msg = 'Sign-in expired or invalid. Try signing out and back in.';
+  else if (res.status === 503) {
+    try {
+      const data = await res.json();
+      if (data.code === 'GOOGLE_CLIENT_ID_MISSING') msg = 'Sign-in not configured. Set GOOGLE_CLIENT_ID in Vercel.';
+      else if (data.code === 'POSTGRES_URL_MISSING') msg = 'Database not configured. Set POSTGRES_URL in Vercel and run the schema.';
+      else msg = 'Server configuration error. Check Vercel env and logs.';
+    } catch (_) {}
+  } else if (res.status >= 500) msg = 'Server configuration error. Check Vercel env and logs.';
+  showToast(msg);
+}
+
 async function loadExpenses() {
   const status = document.getElementById('billsFilterStatus').value || '';
   const category = document.getElementById('billsFilterCategory').value.trim() || '';
@@ -567,7 +581,10 @@ async function loadExpenses() {
   if (status) params.set('status', status);
   if (category) params.set('category', category);
   const res = await apiFetch(`/api/expenses?${params}`);
-  if (!res.ok) return;
+  if (!res.ok) {
+    await showExpensesLoadErrorToast(res);
+    return;
+  }
   expensesList = await res.json();
   renderBillsTable();
 }
@@ -850,7 +867,7 @@ async function importBillsFromCsv(file) {
   }
   const res = await apiFetch('/api/expenses');
   if (!res.ok) {
-    showToast('Could not load existing expenses');
+    await showExpensesLoadErrorToast(res);
     return;
   }
   const existing = await res.json();

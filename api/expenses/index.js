@@ -2,12 +2,20 @@ const { getAuthUser } = require('../../lib/auth');
 const db = require('../../lib/db');
 
 module.exports = async function handler(req, res) {
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    res.status(503).json({ error: 'Server misconfigured', code: 'GOOGLE_CLIENT_ID_MISSING' });
+    return;
+  }
   const user = await getAuthUser(req);
   if (!user) {
     res.status(401).json({ error: 'Unauthorized' });
     return;
   }
   const userId = user.sub;
+  if (!process.env.POSTGRES_URL) {
+    res.status(503).json({ error: 'Server misconfigured', code: 'POSTGRES_URL_MISSING' });
+    return;
+  }
 
   if (req.method === 'GET') {
     try {

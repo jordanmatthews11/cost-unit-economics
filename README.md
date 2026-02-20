@@ -33,6 +33,12 @@ The Bills tab uses Vercel serverless API + database + file storage. To enable it
 
 Local dev: run `npm install` and `vercel dev`; use `vercel env pull` to get env vars.
 
+## Troubleshooting
+
+- **"Could not load existing expenses" or 401 Unauthorized**: Set `GOOGLE_CLIENT_ID` in Vercel (Project → Settings → Environment Variables) to the **exact same** value as in `app.js` (the Web client ID). Apply to Production and, if you use preview URLs, to Preview. Then redeploy.
+- **500 when loading or saving expenses**: Set `POSTGRES_URL` (and any other required [Vercel Postgres](https://vercel.com/docs/storage/vercel-postgres) vars) in Vercel. Run [scripts/schema.sql](scripts/schema.sql) once in the database SQL console. Redeploy after changing env.
+- If you see a 503 toast with "Sign-in not configured" or "Database not configured", fix the indicated env variable in Vercel and redeploy.
+
 ## Teams
 
 - Project Management

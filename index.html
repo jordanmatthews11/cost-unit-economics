@@ -5,14 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cost Unit Economics Calculator</title>
   <link rel="stylesheet" href="styles.css">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-  <header>
-    <div class="header-content">
-      <h1>Cost Unit Economics</h1>
-      <p class="subtitle">Calculate cost per project &amp; cost per response group across your teams</p>
+  <div id="loginContainer" class="login-container">
+    <div class="login-card">
+      <h1 class="login-title">Cost Unit Economics</h1>
+      <p class="login-subtitle">Sign in with your Google account to continue</p>
+      <div id="googleSignInButton"></div>
     </div>
-  </header>
+  </div>
+
+  <div id="appContent" class="app-hidden">
+    <header>
+      <div class="header-content">
+        <div class="header-left">
+          <h1>Cost Unit Economics</h1>
+          <p class="subtitle">Calculate cost per project &amp; cost per response group across your teams</p>
+        </div>
+        <div class="header-user" id="headerUser">
+          <span class="header-user-email" id="headerUserEmail"></span>
+          <button type="button" class="btn btn-signout" id="signOutBtn">Sign out</button>
+        </div>
+      </div>
+    </header>
 
   <main>
     <!-- Results Dashboard (top, always visible) -->
@@ -82,6 +98,7 @@
   <footer>
     <p>Cost Unit Economics Calculator</p>
   </footer>
+  </div>
 
   <script src="app.js"></script>
 </body>

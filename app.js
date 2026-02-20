@@ -2,6 +2,122 @@
 // Cost Unit Economics Calculator — App Logic
 // ============================================
 
+// Replace with your Google OAuth 2.0 Web client ID from Google Cloud Console
+const GOOGLE_CLIENT_ID = '25032009454-sitfdne7k6u6m38q5nj54idg1ghc6aef.apps.googleusercontent.com';
+
+const SESSION_KEY = 'cost_unit_economics_user';
+
+let currentUser = null;
+
+// ---- Auth ----
+
+function getStoredUser() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function setStoredUser(user) {
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
+}
+
+function clearStoredUser() {
+  sessionStorage.removeItem(SESSION_KEY);
+}
+
+function parseJwtPayload(token) {
+  try {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(base64));
+  } catch {
+    return null;
+  }
+}
+
+function showLogin() {
+  currentUser = null;
+  document.getElementById('loginContainer').classList.remove('app-hidden');
+  document.getElementById('appContent').classList.add('app-hidden');
+  renderGoogleButton();
+}
+
+function showApp(user) {
+  currentUser = user;
+  setStoredUser(user);
+  document.getElementById('loginContainer').classList.add('app-hidden');
+  document.getElementById('appContent').classList.remove('app-hidden');
+  const emailEl = document.getElementById('headerUserEmail');
+  if (emailEl) emailEl.textContent = user.email || 'Signed in';
+  document.getElementById('signOutBtn').addEventListener('click', handleSignOut);
+  initCalculator();
+}
+
+function renderGoogleButton() {
+  const el = document.getElementById('googleSignInButton');
+  if (!el) return;
+  if (typeof google === 'undefined') return;
+  el.innerHTML = '';
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: handleCredentialResponse,
+  });
+  google.accounts.id.renderButton(el, {
+    type: 'standard',
+    theme: 'filled_blue',
+    size: 'large',
+    text: 'signin_with',
+    width: 280,
+  });
+}
+
+function handleCredentialResponse(response) {
+  const payload = response.credential ? parseJwtPayload(response.credential) : null;
+  if (!payload) return showLogin();
+  const user = {
+    email: payload.email || '',
+    name: payload.name || payload.email || '',
+  };
+  showApp(user);
+}
+
+function handleSignOut() {
+  if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+    google.accounts.id.disableAutoSelect();
+  }
+  clearStoredUser();
+  currentUser = null;
+  document.getElementById('signOutBtn').replaceWith(document.getElementById('signOutBtn').cloneNode(true));
+  showLogin();
+}
+
+function authInit() {
+  const user = getStoredUser();
+  if (user && user.email) {
+    showApp(user);
+    return;
+  }
+  if (typeof google === 'undefined') {
+    document.getElementById('googleSignInButton').innerHTML =
+      '<p class="login-loading">Loading sign-in…</p>';
+    function checkGoogle() {
+      if (typeof google !== 'undefined') {
+        renderGoogleButton();
+        return;
+      }
+      requestAnimationFrame(checkGoogle);
+    }
+    requestAnimationFrame(checkGoogle);
+    showLogin();
+    return;
+  }
+  showLogin();
+}
+
+// ---- Calculator (existing logic) ----
+
 const TEAMS = [
   { id: 'projectMgmt', name: 'Project Management' },
   { id: 'platform', name: 'Platform' },
@@ -366,7 +482,7 @@ function showToast(message) {
 
 // ---- Initialize ----
 
-function init() {
+function initCalculator() {
   renderTeamCards();
   recalculate();
 
@@ -375,4 +491,4 @@ function init() {
   document.getElementById('copyClipboard').addEventListener('click', copySummary);
 }
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', authInit);

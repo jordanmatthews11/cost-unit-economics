@@ -43,6 +43,60 @@ body {
   min-height: 100vh;
 }
 
+.app-hidden {
+  display: none !important;
+}
+
+/* ---- Login ---- */
+
+.login-container {
+  position: fixed;
+  inset: 0;
+  background: var(--color-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.login-container.app-hidden {
+  display: none !important;
+}
+
+.login-card {
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  padding: 2.5rem;
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+  max-width: 380px;
+  width: 90%;
+}
+
+.login-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 0.5rem;
+}
+
+.login-subtitle {
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+  margin-bottom: 1.5rem;
+}
+
+#googleSignInButton {
+  display: inline-flex;
+  justify-content: center;
+}
+
+.login-loading {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
 /* ---- Header ---- */
 
 header {
@@ -54,6 +108,49 @@ header {
 .header-content {
   max-width: 1200px;
   margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.header-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.header-user {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.header-user-email {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-signout {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: var(--font);
+  transition: background 0.15s ease;
+}
+
+.btn-signout:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 header h1 {

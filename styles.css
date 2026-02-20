@@ -354,6 +354,18 @@ header {
   margin-bottom: 1rem;
 }
 
+.form-row-upload-first {
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 1.25rem;
+}
+
+.upload-first-hint {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin: 0.25rem 0 0.5rem 0;
+}
+
 .form-row label {
   display: block;
   font-size: 0.82rem;

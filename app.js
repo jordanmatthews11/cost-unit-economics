@@ -616,6 +616,31 @@ function escapeAttr(s) {
   return String(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+/**
+ * Parse expense fields from a bill filename.
+ * Handles names like "Bill #B9265733-0158 from Opines, LLC re...@storesight.com - Field Agent Inc Mail.pdf"
+ * or "Bill #INV-004416 from RetailStat, LLC r...@storesight.com - Field Agent Inc Mail.pdf".
+ * @param {string} filename
+ * @returns {{ vendor: string, notes: string }}
+ */
+function parseExpenseFromFilename(filename) {
+  const out = { vendor: '', notes: '' };
+  if (!filename || typeof filename !== 'string') return out;
+  const name = filename.replace(/\.pdf$/i, '');
+
+  // Vendor: text after "from " and before " re" / " r..." / " @"
+  const fromMatch = name.match(/from\s+([^@]+?)\s+r[\s.]/i) || name.match(/from\s+([^@]+?)\s+@/i);
+  if (fromMatch) out.vendor = fromMatch[1].trim();
+
+  // Reference for notes: "Bill #XXX" or "INV-XXX"
+  const billRef = name.match(/(Bill\s*#\s*[^\s-]+(?:-[^\s]+)?)/i);
+  const invRef = name.match(/(INV-[^\s]+)/i);
+  if (billRef) out.notes = billRef[1].trim();
+  else if (invRef) out.notes = invRef[1].trim();
+
+  return out;
+}
+
 function openExpenseModal(editId = null) {
   const modal = document.getElementById('expenseModal');
   const form = document.getElementById('expenseForm');
@@ -624,7 +649,7 @@ function openExpenseModal(editId = null) {
   document.getElementById('expenseId').value = editId || '';
   document.getElementById('expenseInternalBill').value = '';
   document.getElementById('expenseThirdPartyInvoice').value = '';
-  document.getElementById('expenseInternalBillLabel').textContent = 'Choose file or attach later';
+  document.getElementById('expenseInternalBillLabel').textContent = 'Choose file';
   document.getElementById('expenseThirdPartyInvoiceLabel').textContent = 'Choose file or attach later';
   document.getElementById('expenseInternalBillLink').classList.add('app-hidden');
   document.getElementById('expenseThirdPartyInvoiceLink').classList.add('app-hidden');
@@ -742,7 +767,17 @@ function initBillsOnce() {
   document.querySelector('.modal-backdrop').addEventListener('click', closeExpenseModal);
   document.getElementById('expenseForm').addEventListener('submit', saveExpenseForm);
   document.getElementById('expenseInternalBill').addEventListener('change', function () {
-    document.getElementById('expenseInternalBillLabel').textContent = this.files && this.files[0] ? this.files[0].name : 'Choose file or attach later';
+    const label = document.getElementById('expenseInternalBillLabel');
+    label.textContent = this.files && this.files[0] ? this.files[0].name : 'Choose file';
+    if (this.files && this.files[0]) {
+      const { vendor, notes } = parseExpenseFromFilename(this.files[0].name);
+      const vendorEl = document.getElementById('expenseVendor');
+      const notesEl = document.getElementById('expenseNotes');
+      const dateEl = document.getElementById('expenseDate');
+      if (vendor && !vendorEl.value.trim()) vendorEl.value = vendor;
+      if (notes && !notesEl.value.trim()) notesEl.value = notes;
+      if (!dateEl.value) dateEl.value = new Date().toISOString().slice(0, 10);
+    }
   });
   document.getElementById('expenseThirdPartyInvoice').addEventListener('change', function () {
     document.getElementById('expenseThirdPartyInvoiceLabel').textContent = this.files && this.files[0] ? this.files[0].name : 'Choose file or attach later';

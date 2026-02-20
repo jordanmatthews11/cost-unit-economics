@@ -144,6 +144,15 @@
       <h2 id="expenseModalTitle" class="modal-title">Add expense</h2>
       <form id="expenseForm">
         <input type="hidden" id="expenseId">
+        <div class="form-row form-row-upload-first">
+          <label>Internal bill (PDF)</label>
+          <p class="upload-first-hint">Upload your bill first to auto-fill the form.</p>
+          <div class="file-slot">
+            <input type="file" id="expenseInternalBill" accept=".pdf,application/pdf" class="file-input">
+            <span class="file-slot-label" id="expenseInternalBillLabel">Choose file</span>
+            <a href="#" id="expenseInternalBillLink" class="file-link app-hidden" target="_blank" rel="noopener">View</a>
+          </div>
+        </div>
         <div class="form-row">
           <label for="expenseVendor">Vendor</label>
           <input type="text" id="expenseVendor" required>
@@ -171,14 +180,6 @@
         <div class="form-row">
           <label for="expenseNotes">Notes</label>
           <textarea id="expenseNotes" rows="2"></textarea>
-        </div>
-        <div class="form-row">
-          <label>Internal bill (PDF)</label>
-          <div class="file-slot">
-            <input type="file" id="expenseInternalBill" accept=".pdf,application/pdf" class="file-input">
-            <span class="file-slot-label" id="expenseInternalBillLabel">Choose file or attach later</span>
-            <a href="#" id="expenseInternalBillLink" class="file-link app-hidden" target="_blank" rel="noopener">View</a>
-          </div>
         </div>
         <div class="form-row">
           <label>3rd party invoice (PDF)</label>

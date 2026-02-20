@@ -24,20 +24,43 @@ Until you set a valid `GOOGLE_CLIENT_ID`, the sign-in button may not work or may
 
 ## Bills & Expenses (backend)
 
-The Bills tab uses Vercel serverless API + database + file storage. To enable it:
+The Bills tab uses Vercel serverless API + **Firestore** (database) + optional file storage. To enable it:
 
-1. **Database**: Create a Postgres database (e.g. [Vercel Postgres](https://vercel.com/docs/storage/vercel-postgres) or [Neon](https://neon.tech)) and set `POSTGRES_URL` in your Vercel project environment variables.
-2. **Run the schema once**: In your database SQL console, run the contents of [scripts/schema.sql](scripts/schema.sql) to create the `expenses` table.
-3. **File storage**: Create a [Vercel Blob](https://vercel.com/docs/storage/vercel-blob) store and set `BLOB_READ_WRITE_TOKEN` in Vercel.
-4. **API auth**: Set `GOOGLE_CLIENT_ID` in Vercel environment variables (same value as in `app.js`) so the API can verify Google ID tokens.
+1. **Database**: Set up Firestore (see [Firestore setup](#firestore-setup) below).
+2. **API auth**: Set `GOOGLE_CLIENT_ID` in Vercel (same value as in `app.js`). See [Google sign-in setup](#google-sign-in-setup).
+3. **File storage** (optional): For PDF attachments, create [Vercel Blob](https://vercel.com/docs/storage/vercel-blob) and set `BLOB_READ_WRITE_TOKEN`.
 
 Local dev: run `npm install` and `vercel dev`; use `vercel env pull` to get env vars.
+
+### Firestore setup
+
+Do this once. No SQL—Firestore creates the `expenses` collection when the app first writes data.
+
+**Step 1: Open Firebase** — Go to [Firebase Console](https://console.firebase.google.com/). Sign in with your Google account.
+
+**Step 2: Create a project** — Click **Add project** (or select existing). Name it (e.g. `ops-finance-hub`), follow prompts, click **Continue** until done.
+
+**Step 3: Enable Firestore** — Left sidebar: **Build** → [Firestore Database](https://console.firebase.google.com/project/_/firestore). Click **Create database** → **Start in production mode** → pick region (e.g. `us-central1`) → **Enable**.
+
+**Step 4: Get service account JSON** — Left sidebar: gear → **Project settings** → [Service accounts](https://console.firebase.google.com/project/_/settings/serviceaccounts/adminsdk). Click **Generate new private key** → **Generate key**. A JSON file downloads.
+
+**Step 5: Add env var in Vercel** — Open the downloaded JSON in a text editor, select all, copy. Go to [Vercel](https://vercel.com) → your project → **Settings** → [Environment Variables](https://vercel.com/docs/concepts/projects/environment-variables). Click **Add New**. For **Key**, paste exactly:
+
+```
+FIREBASE_SERVICE_ACCOUNT_JSON
+```
+
+For **Value**, paste the entire JSON file contents. Environments: check **Production** (and **Preview** if needed). Click **Save**.
+
+**Step 6: Redeploy** — **Deployments** → **⋯** on latest → **Redeploy** (or push a commit).
+
+**Index error?** — If Firestore shows an error with a link to create an index, open the link and click **Create index**. Wait ~1 min and retry.
 
 ## Troubleshooting
 
 - **"Could not load existing expenses" or 401 Unauthorized**: Set `GOOGLE_CLIENT_ID` in Vercel (Project → Settings → Environment Variables) to the **exact same** value as in `app.js` (the Web client ID). Apply to Production and, if you use preview URLs, to Preview. Then redeploy.
-- **500 when loading or saving expenses**: Set `POSTGRES_URL` (and any other required [Vercel Postgres](https://vercel.com/docs/storage/vercel-postgres) vars) in Vercel. Run [scripts/schema.sql](scripts/schema.sql) once in the database SQL console. Redeploy after changing env.
-- If you see a 503 toast with "Sign-in not configured" or "Database not configured", fix the indicated env variable in Vercel and redeploy.
+- **500 when loading or saving expenses**: Ensure Firestore is set up (see [Firestore setup](#firestore-setup)) and `FIREBASE_SERVICE_ACCOUNT_JSON` is set in Vercel. Redeploy after changing env.
+- If you see a 503 toast with "Sign-in not configured" or "Database not configured", set the indicated env variable in Vercel (e.g. `GOOGLE_CLIENT_ID` or `FIREBASE_SERVICE_ACCOUNT_JSON`) and redeploy.
 
 ## Teams
 
@@ -66,4 +89,4 @@ Cost per Response Group = Grand Total / Total Response Groups
 ## Dependencies
 
 - Frontend: none (vanilla HTML/CSS/JS).
-- Backend (Bills): `@vercel/postgres`, `@vercel/blob`, `google-auth-library`, `busboy` (see `package.json`). Run `npm install` for local API dev.
+- Backend (Bills): `firebase-admin`, `@vercel/blob`, `google-auth-library`, `busboy` (see `package.json`). Run `npm install` for local API dev.

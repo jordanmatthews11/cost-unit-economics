@@ -2,11 +2,15 @@ const { getAuthUser } = require('../../lib/auth');
 const db = require('../../lib/db');
 
 function getIdFromRequest(req) {
-  const match = req.url && req.url.match(/\/api\/expenses\/([a-f0-9-]+)/i);
+  const match = req.url && req.url.match(/\/api\/expenses\/([a-zA-Z0-9._-]+)/);
   return match ? match[1] : null;
 }
 
 module.exports = async function handler(req, res) {
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    res.status(503).json({ error: 'Server misconfigured', code: 'FIRESTORE_NOT_CONFIGURED' });
+    return;
+  }
   const user = await getAuthUser(req);
   if (!user) {
     res.status(401).json({ error: 'Unauthorized' });

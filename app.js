@@ -567,7 +567,7 @@ async function showExpensesLoadErrorToast(res) {
     try {
       const data = await res.json();
       if (data.code === 'GOOGLE_CLIENT_ID_MISSING') msg = 'Sign-in not configured. Set GOOGLE_CLIENT_ID in Vercel.';
-      else if (data.code === 'POSTGRES_URL_MISSING') msg = 'Database not configured. Set POSTGRES_URL in Vercel and run the schema.';
+      else if (data.code === 'POSTGRES_URL_MISSING' || data.code === 'FIRESTORE_NOT_CONFIGURED') msg = 'Database not configured. Set up Firestore: add FIREBASE_SERVICE_ACCOUNT_JSON in Vercel (see README).';
       else msg = 'Server configuration error. Check Vercel env and logs.';
     } catch (_) {}
   } else if (res.status >= 500) msg = 'Server configuration error. Check Vercel env and logs.';

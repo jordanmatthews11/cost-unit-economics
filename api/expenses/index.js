@@ -12,8 +12,8 @@ module.exports = async function handler(req, res) {
     return;
   }
   const userId = user.sub;
-  if (!process.env.POSTGRES_URL) {
-    res.status(503).json({ error: 'Server misconfigured', code: 'POSTGRES_URL_MISSING' });
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    res.status(503).json({ error: 'Server misconfigured', code: 'FIRESTORE_NOT_CONFIGURED' });
     return;
   }
 

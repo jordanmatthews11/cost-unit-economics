@@ -1,4 +1,5 @@
--- Run this once in Vercel Postgres (or your Postgres) to create the expenses table.
+-- Run this once in your Postgres SQL console (Vercel Postgres: Storage → DB → Query; Neon: SQL Editor).
+-- See README "Database setup" for full steps. Creates the expenses table required for Bills & Expenses.
 CREATE TABLE IF NOT EXISTS expenses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id TEXT NOT NULL,

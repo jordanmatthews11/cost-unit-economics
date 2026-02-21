@@ -1,6 +1,29 @@
 const { getAuthUser } = require('../../lib/auth');
 const db = require('../../lib/db');
 
+function getPathname(req) {
+  const raw = req.url || req.originalUrl || '';
+  if (!raw) return '';
+  try {
+    if (raw.startsWith('http')) return new URL(raw).pathname;
+    return new URL(raw, 'http://localhost').pathname;
+  } catch {
+    return raw.split('?')[0];
+  }
+}
+
+function getIdFromPath(pathname) {
+  const match = (pathname || '').match(/\/expenses\/([^/?#]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function setCorsHeaders(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  res.setHeader('Access-Control-Max-Age', '86400');
+}
+
 module.exports = async function handler(req, res) {
   if (!process.env.GOOGLE_CLIENT_ID) {
     res.status(503).json({ error: 'Server misconfigured', code: 'GOOGLE_CLIENT_ID_MISSING' });
@@ -26,13 +49,57 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  // If path is /api/expenses/:id and method is DELETE or PATCH, delegate to [id] handler
-  // (handles platforms that route these requests to index.js instead of [id].js)
-  const pathMatch = (req.url || req.originalUrl || '').match(/^\/api\/expenses\/([^/?#]+)/);
+  const pathname = getPathname(req);
+  const expenseId = getIdFromPath(pathname);
   const method = (req.method || '').toUpperCase();
-  if (pathMatch && (method === 'DELETE' || method === 'PATCH' || method === 'OPTIONS')) {
-    const idHandler = require('./[id]');
-    return idHandler(req, res);
+
+  // /api/expenses/:id — handle DELETE, PATCH, OPTIONS inline so it works when this function receives the request
+  if (expenseId && (method === 'DELETE' || method === 'PATCH' || method === 'OPTIONS')) {
+    if (method === 'OPTIONS') {
+      setCorsHeaders(res);
+      res.status(204).end();
+      return;
+    }
+    if (method === 'DELETE') {
+      try {
+        const deleted = await db.deleteExpense(expenseId, userId);
+        if (!deleted) {
+          res.status(404).json({ error: 'Expense not found' });
+          return;
+        }
+        setCorsHeaders(res);
+        res.status(204).end();
+      } catch (err) {
+        console.error('DELETE expense error:', err);
+        res.status(500).json({ error: 'Failed to delete expense' });
+      }
+      return;
+    }
+    if (method === 'PATCH') {
+      try {
+        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        const data = {};
+        if (body && body.vendor !== undefined) data.vendor = body.vendor;
+        if (body && body.amount_cents !== undefined) data.amount_cents = Math.round(Number(body.amount_cents));
+        if (body && body.date !== undefined) data.date = body.date;
+        if (body && body.status !== undefined) data.status = body.status === 'paid' ? 'paid' : 'pending';
+        if (body && body.category !== undefined) data.category = body.category;
+        if (body && body.notes !== undefined) data.notes = body.notes;
+        if (body && body.internal_bill_url !== undefined) data.internal_bill_url = body.internal_bill_url;
+        if (body && body.third_party_invoice_url !== undefined) data.third_party_invoice_url = body.third_party_invoice_url;
+        const row = await db.updateExpense(expenseId, userId, data);
+        if (!row) {
+          res.status(404).json({ error: 'Expense not found' });
+          return;
+        }
+        setCorsHeaders(res);
+        res.status(200).json(row);
+      } catch (err) {
+        console.error('PATCH expense error:', err);
+        res.status(500).json({ error: 'Failed to update expense' });
+      }
+      return;
+    }
   }
 
   if (req.method === 'GET') {

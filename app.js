@@ -182,27 +182,72 @@ const VOLUME_FIELDS = [
 const COST_FIELDS = [
   { key: 'headcount', label: 'Headcount', placeholder: 'e.g. 5', step: '1' },
   { key: 'avgSalary', label: 'Avg. Salary per Person ($)', placeholder: 'e.g. 95000', step: '0.01' },
-  { key: 'toolsCost', label: 'Tools & Software ($)', placeholder: 'e.g. 12000', step: '0.01' },
-  { key: 'overhead', label: 'Overhead / Operational ($)', placeholder: 'e.g. 8000', step: '0.01' },
-  { key: 'other', label: 'Other Costs ($)', placeholder: 'e.g. 3000', step: '0.01' },
 ];
+
+const UNIT_ECONOMICS_STORAGE_KEY = 'cost_unit_economics_monthly';
+
+function getCurrentMonthString() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
 
 // ---- State ----
 
 const state = {
-  teams: {},
+  unitEconomics: {
+    currentMonth: getCurrentMonthString(),
+    months: {},
+  },
 };
 
-// Initialize state for each team
-TEAMS.forEach((team) => {
-  state.teams[team.id] = {};
-  VOLUME_FIELDS.forEach((field) => {
-    state.teams[team.id][field.key] = 0;
+function getDefaultTeamMonthData() {
+  const data = { lineItems: [] };
+  VOLUME_FIELDS.forEach((f) => { data[f.key] = 0; });
+  COST_FIELDS.forEach((f) => { data[f.key] = 0; });
+  return data;
+}
+
+function ensureMonthData(month) {
+  if (!state.unitEconomics.months[month]) {
+    state.unitEconomics.months[month] = {};
+  }
+  TEAMS.forEach((team) => {
+    let t = state.unitEconomics.months[month][team.id];
+    if (!t || typeof t !== 'object') {
+      state.unitEconomics.months[month][team.id] = { ...getDefaultTeamMonthData(), lineItems: [] };
+      t = state.unitEconomics.months[month][team.id];
+    }
+    if (!Array.isArray(t.lineItems)) t.lineItems = [];
   });
-  COST_FIELDS.forEach((field) => {
-    state.teams[team.id][field.key] = 0;
-  });
-});
+  return state.unitEconomics.months[month];
+}
+
+function getMonthData(teamId) {
+  const month = state.unitEconomics.currentMonth;
+  ensureMonthData(month);
+  return state.unitEconomics.months[month][teamId] || getDefaultTeamMonthData();
+}
+
+function loadUnitEconomicsFromStorage() {
+  try {
+    const raw = localStorage.getItem(UNIT_ECONOMICS_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (parsed.currentMonth) state.unitEconomics.currentMonth = parsed.currentMonth;
+    if (parsed.months && typeof parsed.months === 'object') {
+      state.unitEconomics.months = parsed.months;
+      Object.keys(state.unitEconomics.months).forEach((m) => ensureMonthData(m));
+    }
+  } catch (_) {}
+}
+
+function saveUnitEconomicsToStorage() {
+  try {
+    localStorage.setItem(UNIT_ECONOMICS_STORAGE_KEY, JSON.stringify(state.unitEconomics));
+  } catch (_) {}
+}
 
 // ---- Helpers ----
 
@@ -233,12 +278,10 @@ function parseNumericInput(value) {
 }
 
 function getTeamTotal(teamId) {
-  const t = state.teams[teamId];
+  const t = getMonthData(teamId);
   const salaryCost = (t.headcount || 0) * (t.avgSalary || 0);
-  const tools = t.toolsCost || 0;
-  const overhead = t.overhead || 0;
-  const other = t.other || 0;
-  return salaryCost + tools + overhead + other;
+  const lineTotal = (t.lineItems || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  return salaryCost + lineTotal;
 }
 
 function getGrandTotal() {
@@ -246,27 +289,47 @@ function getGrandTotal() {
 }
 
 function getTotalProjects() {
-  return TEAMS.reduce((sum, team) => sum + (state.teams[team.id].numProjects || 0), 0);
+  return TEAMS.reduce((sum, team) => sum + (getMonthData(team.id).numProjects || 0), 0);
 }
 
 function getTotalResponses() {
-  return TEAMS.reduce((sum, team) => sum + (state.teams[team.id].numResponses || 0), 0);
+  return TEAMS.reduce((sum, team) => sum + (getMonthData(team.id).numResponses || 0), 0);
 }
 
 // ---- Render Team Cards ----
 
+function renderLineItemsList(teamId) {
+  const items = getMonthData(teamId).lineItems || [];
+  if (items.length === 0) {
+    return '<ul class="line-items-list" data-team="' + teamId + '"></ul>';
+  }
+  const list = items.map((item) => {
+    const label = typeof item.label === 'string' ? item.label.replace(/"/g, '&quot;') : '';
+    const amount = Number(item.amount) || 0;
+    return `<li class="line-item-row" data-team="${teamId}" data-line-id="${item.id}">
+      <input type="text" class="line-item-label" value="${label}" placeholder="Label" data-team="${teamId}" data-line-id="${item.id}">
+      <input type="number" class="line-item-amount" value="${amount}" min="0" step="0.01" placeholder="0" data-team="${teamId}" data-line-id="${item.id}">
+      <button type="button" class="btn btn-small btn-compact btn-delete line-item-remove" data-team="${teamId}" data-line-id="${item.id}" aria-label="Remove">Remove</button>
+    </li>`;
+  }).join('');
+  return '<ul class="line-items-list" data-team="' + teamId + '">' + list + '</ul>';
+}
+
 function renderTeamCards() {
   const grid = document.getElementById('teamsGrid');
+  if (!grid) return;
   grid.innerHTML = '';
 
   TEAMS.forEach((team) => {
+    const data = getMonthData(team.id);
     const card = document.createElement('div');
     card.className = 'team-card';
     card.setAttribute('data-team', team.id);
 
-    // Volume fields (top of card)
     let volumeHTML = '';
     VOLUME_FIELDS.forEach((field) => {
+      const val = data[field.key];
+      const valueAttr = val !== undefined && val !== '' ? ` value="${Number(val) || ''}"` : '';
       volumeHTML += `
         <div class="input-row">
           <label for="${team.id}_${field.key}">${field.label}</label>
@@ -278,14 +341,15 @@ function renderTeamCards() {
             min="0"
             step="${field.step}"
             placeholder="${field.placeholder}"
-            value=""
+            ${valueAttr}
           >
         </div>`;
     });
 
-    // Cost fields (below divider)
     let costHTML = '';
     COST_FIELDS.forEach((field) => {
+      const val = data[field.key];
+      const valueAttr = val !== undefined && val !== '' ? ` value="${Number(val) || ''}"` : '';
       costHTML += `
         <div class="input-row">
           <label for="${team.id}_${field.key}">${field.label}</label>
@@ -297,16 +361,26 @@ function renderTeamCards() {
             min="0"
             step="${field.step}"
             placeholder="${field.placeholder}"
-            value=""
+            ${valueAttr}
           >
         </div>`;
     });
+
+    const lineItemsHTML = `
+      <div class="line-items-block">
+        <div class="line-items-header">
+          <span class="line-items-title">Line expenses</span>
+          <button type="button" class="btn btn-small btn-compact btn-secondary add-line-item-btn" data-team="${team.id}">Add line item</button>
+        </div>
+        ${renderLineItemsList(team.id)}
+      </div>`;
 
     card.innerHTML = `
       <h3>${team.name}</h3>
       ${volumeHTML}
       <div class="volume-divider"></div>
       ${costHTML}
+      ${lineItemsHTML}
       <div class="team-footer">
         <div class="team-footer-row team-footer-total">
           <span class="team-footer-label">Team Total</span>
@@ -326,17 +400,70 @@ function renderTeamCards() {
     grid.appendChild(card);
   });
 
-  // Attach input listeners
-  grid.querySelectorAll('input[data-team]').forEach((input) => {
+  grid.querySelectorAll('input[data-team][data-field]').forEach((input) => {
     input.addEventListener('input', handleTeamInput);
   });
+  grid.querySelectorAll('.add-line-item-btn').forEach((btn) => {
+    btn.addEventListener('click', handleAddLineItem);
+  });
+  grid.querySelectorAll('.line-item-label, .line-item-amount').forEach((input) => {
+    input.addEventListener('change', handleLineItemChange);
+  });
+  grid.querySelectorAll('.line-item-remove').forEach((btn) => {
+    btn.addEventListener('click', handleRemoveLineItem);
+  });
+}
+
+function handleAddLineItem(e) {
+  const teamId = e.target.dataset.team;
+  const month = state.unitEconomics.currentMonth;
+  ensureMonthData(month);
+  const list = state.unitEconomics.months[month][teamId].lineItems;
+  const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'li-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+  list.push({ id, label: '', amount: 0 });
+  saveUnitEconomicsToStorage();
+  renderTeamCards();
+  recalculate();
+  const firstNew = document.querySelector(`.line-item-row[data-line-id="${id}"] .line-item-label`);
+  if (firstNew) firstNew.focus();
+}
+
+function handleLineItemChange(e) {
+  const { team: teamId, lineId } = e.target.dataset;
+  const month = state.unitEconomics.currentMonth;
+  const list = state.unitEconomics.months[month][teamId].lineItems;
+  const item = list.find((x) => x.id === lineId);
+  if (!item) return;
+  if (e.target.classList.contains('line-item-label')) {
+    item.label = e.target.value.trim();
+  } else {
+    item.amount = parseNumericInput(e.target.value);
+  }
+  saveUnitEconomicsToStorage();
+  recalculate();
+}
+
+function handleRemoveLineItem(e) {
+  const { team: teamId, lineId } = e.target.dataset;
+  const month = state.unitEconomics.currentMonth;
+  const list = state.unitEconomics.months[month][teamId].lineItems;
+  const idx = list.findIndex((x) => x.id === lineId);
+  if (idx !== -1) {
+    list.splice(idx, 1);
+    saveUnitEconomicsToStorage();
+    renderTeamCards();
+    recalculate();
+  }
 }
 
 // ---- Event Handlers ----
 
 function handleTeamInput(e) {
   const { team, field } = e.target.dataset;
-  state.teams[team][field] = parseNumericInput(e.target.value);
+  const month = state.unitEconomics.currentMonth;
+  ensureMonthData(month);
+  state.unitEconomics.months[month][team][field] = parseNumericInput(e.target.value);
+  saveUnitEconomicsToStorage();
   recalculate();
 }
 
@@ -357,8 +484,8 @@ function recalculate() {
   // Update each team card footer
   TEAMS.forEach((team) => {
     const teamCost = getTeamTotal(team.id);
-    const teamProjects = state.teams[team.id].numProjects || 0;
-    const teamResponses = state.teams[team.id].numResponses || 0;
+    const teamProjects = getMonthData(team.id).numProjects || 0;
+    const teamResponses = getMonthData(team.id).numResponses || 0;
 
     const totalEl = document.getElementById(`total_${team.id}`);
     const cppEl = document.getElementById(`cpp_${team.id}`);
@@ -384,8 +511,8 @@ function renderBreakdownTable(grandTotal, totalProjects, totalResponses) {
 
   TEAMS.forEach((team) => {
     const teamCost = getTeamTotal(team.id);
-    const teamProjects = state.teams[team.id].numProjects || 0;
-    const teamResponses = state.teams[team.id].numResponses || 0;
+    const teamProjects = getMonthData(team.id).numProjects || 0;
+    const teamResponses = getMonthData(team.id).numResponses || 0;
     const pct = grandTotal > 0 ? teamCost / grandTotal : 0;
     const perProject = teamProjects > 0 ? teamCost / teamProjects : 0;
     const perResponse = teamResponses > 0 ? teamCost / teamResponses : 0;
@@ -457,8 +584,8 @@ function exportCSV() {
 
   TEAMS.forEach((team) => {
     const teamCost = getTeamTotal(team.id);
-    const teamProjects = state.teams[team.id].numProjects || 0;
-    const teamResponses = state.teams[team.id].numResponses || 0;
+    const teamProjects = getMonthData(team.id).numProjects || 0;
+    const teamResponses = getMonthData(team.id).numResponses || 0;
     const pct = grandTotal > 0 ? ((teamCost / grandTotal) * 100).toFixed(1) + '%' : '0.0%';
     const perProject = teamProjects > 0 ? (teamCost / teamProjects).toFixed(2) : '0.00';
     const perResponse = teamResponses > 0 ? (teamCost / teamResponses).toFixed(2) : '0.00';
@@ -473,7 +600,7 @@ function exportCSV() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'cost_unit_economics.csv';
+  a.download = `cost_unit_economics_${state.unitEconomics.currentMonth || getCurrentMonthString()}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 
@@ -487,7 +614,8 @@ function copySummary() {
   const overallCostPerProject = totalProjects > 0 ? grandTotal / totalProjects : 0;
   const overallCostPerResponse = totalResponses > 0 ? grandTotal / totalResponses : 0;
 
-  let summary = `Cost Unit Economics Summary\n`;
+  const monthLabel = state.unitEconomics.currentMonth || getCurrentMonthString();
+  let summary = `Cost Unit Economics Summary (${monthLabel})\n`;
   summary += `===========================\n\n`;
   summary += `Total Cost: ${formatCurrency(grandTotal)}\n`;
   summary += `Total Projects: ${formatNumber(totalProjects)}\n`;
@@ -499,8 +627,8 @@ function copySummary() {
 
   TEAMS.forEach((team) => {
     const teamCost = getTeamTotal(team.id);
-    const teamProjects = state.teams[team.id].numProjects || 0;
-    const teamResponses = state.teams[team.id].numResponses || 0;
+    const teamProjects = getMonthData(team.id).numProjects || 0;
+    const teamResponses = getMonthData(team.id).numResponses || 0;
     const pct = grandTotal > 0 ? formatPercent(teamCost / grandTotal) : '0.0%';
     const perProject = teamProjects > 0 ? formatCurrency(teamCost / teamProjects) : '$0.00';
     const perResponse = teamResponses > 0 ? formatCurrency(teamCost / teamResponses) : '$0.00';
@@ -1302,6 +1430,21 @@ function initBillsOnce() {
 // ---- Initialize ----
 
 function initCalculator() {
+  loadUnitEconomicsFromStorage();
+  ensureMonthData(state.unitEconomics.currentMonth);
+
+  const monthEl = document.getElementById('unitEconomicsMonth');
+  if (monthEl) {
+    monthEl.value = state.unitEconomics.currentMonth;
+    monthEl.addEventListener('change', function () {
+      state.unitEconomics.currentMonth = this.value || getCurrentMonthString();
+      ensureMonthData(state.unitEconomics.currentMonth);
+      renderTeamCards();
+      recalculate();
+      saveUnitEconomicsToStorage();
+    });
+  }
+
   renderTeamCards();
   recalculate();
 

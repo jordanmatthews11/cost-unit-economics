@@ -12,9 +12,46 @@ function getPathname(req) {
   }
 }
 
-function getIdFromPath(pathname) {
-  const match = (pathname || '').match(/\/expenses\/([^/?#]+)/);
-  return match ? decodeURIComponent(match[1]) : null;
+/** Extract expense ID from path segments or query. Supports /api/expenses/:id, /expenses/:id, and single-segment path. */
+function getExpenseId(req) {
+  const pathname = getPathname(req);
+  const segments = (pathname || '')
+    .split('/')
+    .map((s) => s.split('?')[0])
+    .filter(Boolean);
+  const expensesIdx = segments.indexOf('expenses');
+  if (expensesIdx >= 0 && segments[expensesIdx + 1]) {
+    try {
+      return decodeURIComponent(segments[expensesIdx + 1]);
+    } catch {
+      return null;
+    }
+  }
+  const regexMatch = (pathname || '').match(/\/expenses\/([^/?#]+)/);
+  if (regexMatch) {
+    try {
+      return decodeURIComponent(regexMatch[1]);
+    } catch {
+      return null;
+    }
+  }
+  if (segments.length === 1 && segments[0]) {
+    try {
+      return decodeURIComponent(segments[0]);
+    } catch {
+      return null;
+    }
+  }
+  const q = req.query || {};
+  const idFromQuery = q.id || q.expenseId;
+  if (idFromQuery && typeof idFromQuery === 'string') {
+    try {
+      return decodeURIComponent(idFromQuery);
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 function setCorsHeaders(res) {
@@ -49,9 +86,12 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const pathname = getPathname(req);
-  const expenseId = getIdFromPath(pathname);
   const method = (req.method || '').toUpperCase();
+  const expenseId = getExpenseId(req);
+  const pathname = getPathname(req);
+  if (method === 'DELETE' || method === 'PATCH' || method === 'OPTIONS') {
+    console.log('[expenses index]', method, 'pathname=', pathname, 'expenseId=', expenseId ? '***' : null);
+  }
 
   // /api/expenses/:id — handle DELETE, PATCH, OPTIONS inline so it works when this function receives the request
   if (expenseId && (method === 'DELETE' || method === 'PATCH' || method === 'OPTIONS')) {
@@ -193,5 +233,7 @@ module.exports = async function handler(req, res) {
     return;
   }
 
+  setCorsHeaders(res);
+  res.setHeader('Allow', 'GET, POST, PATCH, DELETE, OPTIONS');
   res.status(405).json({ error: 'Method not allowed' });
 };

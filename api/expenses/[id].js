@@ -10,8 +10,32 @@ function getIdFromRequest(req) {
   } catch {
     pathname = raw.split('?')[0];
   }
-  const match = pathname.match(/\/api\/expenses\/([^/]+)$/);
-  return match ? decodeURIComponent(match[1]) : null;
+  const match = (pathname || '').match(/\/api\/expenses\/([^/?#]+)/);
+  if (match) {
+    try {
+      return decodeURIComponent(match[1]);
+    } catch {
+      return null;
+    }
+  }
+  const segments = (pathname || '').split('/').filter(Boolean);
+  if (segments.length === 1 && segments[0]) {
+    try {
+      return decodeURIComponent(segments[0]);
+    } catch {
+      return null;
+    }
+  }
+  const q = req.query || {};
+  const idFromQuery = q.id || q.expenseId;
+  if (idFromQuery && typeof idFromQuery === 'string') {
+    try {
+      return decodeURIComponent(idFromQuery);
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 function setCorsHeaders(res) {

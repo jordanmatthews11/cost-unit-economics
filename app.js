@@ -879,14 +879,16 @@ function parseTipaltiBillsCsv(text) {
     const i = header.indexOf(name);
     return i >= 0 ? (row[i] || '').trim() : '';
   };
-  // Use total bill amount: prefer "Amount", never use "Amount due" alone (0 for paid bills). If both exist, use the larger value so we always get the total regardless of column order.
+  // Use "Amount" (Column M) only; do not use "Amount due" (Column N), which is $0 for paid bills.
   const amountColIndex = header.findIndex((h) => (h || '').trim() === 'Amount');
   const amountDueColIndex = header.findIndex((h) => (h || '').trim() === 'Amount due');
   const getAmountCents = (row) => {
-    const parse = (str) => Math.round((parseFloat(String(str || '').replace(/[^0-9.-]/g, '')) || 0) * 100);
-    const fromAmount = amountColIndex >= 0 && amountColIndex !== amountDueColIndex ? parse((row[amountColIndex] || '').trim()) : parse(get(row, 'Amount'));
-    const fromAmountDue = amountDueColIndex >= 0 ? parse((row[amountDueColIndex] || '').trim()) : 0;
-    return Math.max(fromAmount, fromAmountDue);
+    // Must be the "Amount" column and must not be the "Amount due" column (in case of column order quirks).
+    const idx = amountColIndex >= 0 && amountColIndex !== amountDueColIndex ? amountColIndex : -1;
+    if (idx < 0) return 0;
+    const str = (row[idx] || '').trim();
+    const num = parseFloat(String(str).replace(/[^0-9.-]/g, '')) || 0;
+    return Math.round(num * 100);
   };
   const monthNames = 'Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec'.split(',');
   const parseBillDate = (s) => {

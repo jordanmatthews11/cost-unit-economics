@@ -542,6 +542,7 @@ async function apiFetch(path, options = {}) {
   }
   const res = await fetch(path, {
     ...options,
+    ...(options.method ? {} : { cache: 'no-store' }),
     headers: {
       ...(options.headers || {}),
       Authorization: `Bearer ${token}`,
@@ -591,6 +592,7 @@ async function loadExpenses() {
   if (year) params.set('year', year);
   if (month) params.set('month', month);
   if (vendor) params.set('vendor', vendor);
+  params.set('_', Date.now());
   const res = await apiFetch(`/api/expenses?${params}`);
   if (!res.ok) {
     await showExpensesLoadErrorToast(res);
@@ -698,7 +700,7 @@ async function deleteSelectedExpenses() {
     else failed += 1;
   }
   selectedExpenseIds.clear();
-  loadExpenses();
+  await loadExpenses();
   if (failed > 0) showToast(`Deleted ${ok}, ${failed} failed`);
   else showToast(`Deleted ${ok}`);
 }
@@ -1070,7 +1072,7 @@ async function deleteExpenseById(id) {
     return;
   }
   showToast('Deleted');
-  loadExpenses();
+  await loadExpenses();
 }
 
 function matchKey(e) {

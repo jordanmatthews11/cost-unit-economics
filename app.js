@@ -825,7 +825,7 @@ function parseCsvLine(line) {
 /** Detect CSV format from header line. Returns 'billcom' | 'tipalti' | null. */
 function detectBillsCsvFormat(headerLine) {
   const header = parseCsvLine(headerLine);
-  const has = (name) => header.some((h) => (h || '').trim() === name);
+  const has = (name) => header.some((h) => normalizeHeader(h).toLowerCase() === name.toLowerCase());
   if (has('Transaction ID') && (has('Merchant') || has('Clean Merchant Name')) && has('Date (UTC)')) return 'billcom';
   if (has('Payee Name') && has('Bill Date')) return 'tipalti';
   return null;
@@ -879,38 +879,42 @@ function normalizeHeader(h) {
   return s;
 }
 
-/** Parse Tipalti BillList-style CSV; return array of { vendor, amount_cents, date, status, category, notes }. Uses "Amount" (Column M) only, not "Amount due" (Column N). */
+/** Normalized header for case-insensitive comparison (Tipalti export casing can vary). */
+function headerKey(h) {
+  return normalizeHeader(h).toLowerCase();
+}
+
+/** Parse Tipalti BillList-style CSV; return array of { vendor, amount_cents, date, status, category, notes }. Uses "Amount" (col 13) only, not "Amount due" (col 14). */
 function parseTipaltiBillsCsv(text) {
   const lines = text.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return [];
   const header = parseCsvLine(lines[0]);
   const get = (row, name) => {
-    const i = header.findIndex((h) => normalizeHeader(h) === name);
+    const i = header.findIndex((h) => headerKey(h) === name.toLowerCase());
     return i >= 0 ? (row[i] || '').trim() : '';
   };
-  // Use "Amount" (full bill) only; never use "Amount due" (Column N), which is $0 for paid bills.
-  const amountDueColIndex = header.findIndex((h) => normalizeHeader(h) === 'Amount due');
-  // Prefer exact "Amount"; also accept "Amount (USD)" etc. but never "Amount due".
+  // Tipalti order (from export): ... 12=Currency, 13=Amount, 14=Amount due, ...
+  const amountDueKey = 'amount due';
+  const amountDueColIndex = header.findIndex((h) => headerKey(h) === amountDueKey);
   let amountColIndex = header.findIndex((h) => {
-    const n = normalizeHeader(h);
-    return n === 'Amount' || (n.startsWith('Amount') && n !== 'Amount due' && !n.includes('Amount due'));
+    const k = headerKey(h);
+    return k === 'amount' || (k.startsWith('amount') && k !== amountDueKey && !k.includes('amount due'));
   });
   if (amountColIndex === amountDueColIndex) amountColIndex = -1;
+  // If still no "Amount" by name, use fixed position 12 (canonical Tipalti column 13 = Amount).
+  if (amountColIndex < 0 && header.length > 12) amountColIndex = 12;
   const parseAmount = (str) => parseFloat(String(str || '').replace(/[^0-9.-]/g, '')) || 0;
   const getAmountCents = (row) => {
-    if (amountColIndex >= 0) {
+    if (amountColIndex >= 0 && row.length > amountColIndex) {
       const num = parseAmount((row[amountColIndex] || '').trim());
       return Math.round(num * 100);
     }
-    // Fallback when "Amount" header not found: use "Amount due" position and adjacent columns (M can be before or after N).
-    if (amountDueColIndex >= 0) {
+    if (amountDueColIndex >= 0 && row.length > amountDueColIndex) {
       const before = amountDueColIndex > 0 ? parseAmount((row[amountDueColIndex - 1] || '').trim()) : 0;
       const due = parseAmount((row[amountDueColIndex] || '').trim());
       const after = row.length > amountDueColIndex + 1 ? parseAmount((row[amountDueColIndex + 1] || '').trim()) : 0;
-      const total = Math.max(before, due, after);
-      return Math.round(total * 100);
+      return Math.round(Math.max(before, due, after) * 100);
     }
-    // Last resort: fixed positions 12 and 13 (M and N) in case column order differs.
     const at12 = row.length > 12 ? parseAmount((row[12] || '').trim()) : 0;
     const at13 = row.length > 13 ? parseAmount((row[13] || '').trim()) : 0;
     return Math.round(Math.max(at12, at13) * 100);

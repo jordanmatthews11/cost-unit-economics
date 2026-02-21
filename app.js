@@ -879,12 +879,14 @@ function parseTipaltiBillsCsv(text) {
     const i = header.indexOf(name);
     return i >= 0 ? (row[i] || '').trim() : '';
   };
-  // Use "Amount" (total bill amount) only; do not use "Amount due"
+  // Use total bill amount: prefer "Amount", never use "Amount due" alone (0 for paid bills). If both exist, use the larger value so we always get the total regardless of column order.
   const amountColIndex = header.findIndex((h) => (h || '').trim() === 'Amount');
   const amountDueColIndex = header.findIndex((h) => (h || '').trim() === 'Amount due');
-  const getAmountStr = (row) => {
-    if (amountColIndex >= 0 && amountColIndex !== amountDueColIndex) return (row[amountColIndex] || '').trim();
-    return get(row, 'Amount');
+  const getAmountCents = (row) => {
+    const parse = (str) => Math.round((parseFloat(String(str || '').replace(/[^0-9.-]/g, '')) || 0) * 100);
+    const fromAmount = amountColIndex >= 0 && amountColIndex !== amountDueColIndex ? parse((row[amountColIndex] || '').trim()) : parse(get(row, 'Amount'));
+    const fromAmountDue = amountDueColIndex >= 0 ? parse((row[amountDueColIndex] || '').trim()) : 0;
+    return Math.max(fromAmount, fromAmountDue);
   };
   const monthNames = 'Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec'.split(',');
   const parseBillDate = (s) => {
@@ -908,11 +910,9 @@ function parseTipaltiBillsCsv(text) {
     const invoiceNumber = get(row, 'Invoice Number');
     const billStatus = get(row, 'Bill Status');
     const paymentStatus = get(row, 'Payment Status');
-    const amountStr = getAmountStr(row);
     const description = get(row, 'Description');
     if (!payeeName) continue;
-    const amount = parseFloat(amountStr.replace(/[^0-9.-]/g, '')) || 0;
-    const amount_cents = Math.round(amount * 100);
+    const amount_cents = getAmountCents(row);
     const date = parseBillDate(billDate);
     let status = 'pending';
     const statusLower = (billStatus + ' ' + paymentStatus).toLowerCase();

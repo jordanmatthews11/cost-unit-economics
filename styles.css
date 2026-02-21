@@ -227,8 +227,9 @@ header {
 
 .bills-actions {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .filter-select,
@@ -302,18 +303,115 @@ header {
 }
 
 .bills-metrics {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
   font-size: 0.875rem;
 }
 
+.bills-metrics-inner {
+  max-width: 100%;
+}
+
 .bills-metrics-title {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  font-weight: 600;
   margin: 0 0 0.5rem 0;
   color: var(--color-text-muted);
 }
 
-.bills-metrics-row {
-  margin: 0.25rem 0;
+.bills-metrics-total {
+  margin: 0 0 1rem 0;
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+
+.bills-metrics-total-value {
+  color: var(--color-primary);
+  font-size: 1.05rem;
+}
+
+.bills-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .bills-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bills-metrics-module {
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.bills-metrics-module:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.bills-metrics-grid .bills-metrics-module:first-child {
+  background: linear-gradient(to bottom, rgba(217, 226, 255, 0.25), var(--color-surface));
+}
+
+.bills-metrics-module-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin: 0 0 0.5rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.bills-metrics-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bills-metrics-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.bills-metrics-label {
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.bills-metrics-amount {
+  color: var(--color-text-muted);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.bills-metrics-empty-line {
+  color: var(--color-text-muted);
+}
+
+.bills-metrics-more {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  padding: 0.35rem 0 0 0;
+  margin-top: 0.25rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.bills-metrics-list-scroll {
+  max-height: 12rem;
+  overflow-y: auto;
 }
 
 .bills-metrics-empty {
@@ -797,6 +895,12 @@ tbody tr:hover {
   font-family: var(--font);
   cursor: pointer;
   transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.btn-compact {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.82rem;
+  border-radius: 6px;
 }
 
 .btn:active {

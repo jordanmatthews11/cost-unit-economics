@@ -95,8 +95,8 @@
 
     <!-- Export -->
     <section class="export-section">
-      <button class="btn btn-export" id="exportCsv">Export as CSV</button>
-      <button class="btn btn-copy" id="copyClipboard">Copy Summary</button>
+      <button class="btn btn-compact btn-export" id="exportCsv">Export as CSV</button>
+      <button class="btn btn-compact btn-copy" id="copyClipboard">Copy Summary</button>
     </section>
   </main>
 
@@ -132,10 +132,10 @@
         </div>
         <div class="bills-actions">
           <input type="file" id="billsCsvInput" accept=".csv,text/csv" class="app-hidden" aria-label="Import CSV">
-          <button type="button" class="btn btn-secondary" id="billsImportCsvBtn">Import CSV</button>
-          <button type="button" class="btn btn-secondary" id="billsDeleteSelectedBtn" disabled>Delete selected</button>
-          <button type="button" class="btn btn-secondary" id="billsExportBtn">Export</button>
-          <button type="button" class="btn btn-primary" id="billsAddBtn">Add expense</button>
+          <button type="button" class="btn btn-compact btn-secondary" id="billsImportCsvBtn">Import CSV</button>
+          <button type="button" class="btn btn-compact btn-secondary" id="billsDeleteSelectedBtn" disabled>Delete selected</button>
+          <button type="button" class="btn btn-compact btn-secondary" id="billsExportBtn">Export</button>
+          <button type="button" class="btn btn-compact btn-primary" id="billsAddBtn">Add expense</button>
         </div>
       </div>
       <p class="bills-quicklinks">
@@ -212,8 +212,8 @@
           </div>
         </div>
         <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" id="expenseModalCancel">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="button" class="btn btn-compact btn-secondary" id="expenseModalCancel">Cancel</button>
+          <button type="submit" class="btn btn-compact btn-primary">Save</button>
         </div>
       </form>
     </div>

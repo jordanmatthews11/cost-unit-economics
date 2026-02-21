@@ -771,15 +771,47 @@ function renderBillsMetrics(list) {
     byVendor[v] = (byVendor[v] || 0) + cents;
   });
   const fmt = (c) => '$' + (c / 100).toFixed(2);
-  const yearLines = Object.entries(byYear).sort((a, b) => b[0].localeCompare(a[0])).map(([y, c]) => `${y}: ${fmt(c)}`).join(', ');
-  const monthLines = Object.entries(byMonth).sort((a, b) => b[0].localeCompare(a[0])).map(([ym, c]) => `${formatYearMonth(ym)}: ${fmt(c)}`).join(', ');
-  const vendorLines = Object.entries(byVendor).sort((a, b) => b[1] - a[1]).map(([v, c]) => `${escapeHtml(v)}: ${fmt(c)}`).join('; ');
+  const totalCents = list.reduce((sum, e) => sum + (e.amount_cents || 0), 0);
+  const yearEntries = Object.entries(byYear).sort((a, b) => b[0].localeCompare(a[0]));
+  const monthEntries = Object.entries(byMonth).sort((a, b) => b[0].localeCompare(a[0]));
+  const vendorEntries = Object.entries(byVendor).sort((a, b) => b[1] - a[1]);
+  const maxMonths = 24;
+  const maxVendors = 20;
+  const monthShow = monthEntries.slice(0, maxMonths);
+  const vendorShow = vendorEntries.slice(0, maxVendors);
+  const monthMore = monthEntries.length - maxMonths;
+  const vendorMore = vendorEntries.length - maxVendors;
+
+  const yearList = yearEntries.length
+    ? yearEntries.map(([y, c]) => `<li class="bills-metrics-item"><span class="bills-metrics-label">${escapeHtml(y)}</span><span class="bills-metrics-amount">${fmt(c)}</span></li>`).join('')
+    : '<li class="bills-metrics-item bills-metrics-empty-line">—</li>';
+  const monthList = monthShow.length
+    ? monthShow.map(([ym, c]) => `<li class="bills-metrics-item"><span class="bills-metrics-label">${escapeHtml(formatYearMonth(ym))}</span><span class="bills-metrics-amount">${fmt(c)}</span></li>`).join('') +
+      (monthMore > 0 ? `<li class="bills-metrics-more">+ ${monthMore} more</li>` : '')
+    : '<li class="bills-metrics-item bills-metrics-empty-line">—</li>';
+  const vendorList = vendorShow.length
+    ? vendorShow.map(([v, c]) => `<li class="bills-metrics-item"><span class="bills-metrics-label">${escapeHtml(v)}</span><span class="bills-metrics-amount">${fmt(c)}</span></li>`).join('') +
+      (vendorMore > 0 ? `<li class="bills-metrics-more">+ ${vendorMore} more</li>` : '')
+    : '<li class="bills-metrics-item bills-metrics-empty-line">—</li>';
+
   el.innerHTML = `
     <div class="bills-metrics-inner">
       <h3 class="bills-metrics-title">Summary</h3>
-      <p class="bills-metrics-row"><strong>By year:</strong> ${yearLines || '—'}</p>
-      <p class="bills-metrics-row"><strong>By month:</strong> ${monthLines || '—'}</p>
-      <p class="bills-metrics-row"><strong>By vendor:</strong> ${vendorLines || '—'}</p>
+      <p class="bills-metrics-total">Total: <strong class="bills-metrics-total-value">${fmt(totalCents)}</strong></p>
+      <div class="bills-metrics-grid">
+        <div class="bills-metrics-module">
+          <h4 class="bills-metrics-module-title">By year</h4>
+          <ul class="bills-metrics-list">${yearList}</ul>
+        </div>
+        <div class="bills-metrics-module">
+          <h4 class="bills-metrics-module-title">By month</h4>
+          <ul class="bills-metrics-list bills-metrics-list-scroll">${monthList}</ul>
+        </div>
+        <div class="bills-metrics-module">
+          <h4 class="bills-metrics-module-title">By vendor</h4>
+          <ul class="bills-metrics-list bills-metrics-list-scroll">${vendorList}</ul>
+        </div>
+      </div>
     </div>
   `;
   el.classList.remove('app-hidden');

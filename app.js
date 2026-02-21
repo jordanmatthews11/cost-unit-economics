@@ -890,17 +890,27 @@ function parseTipaltiBillsCsv(text) {
   };
   // Use "Amount" (Column M) only; never use "Amount due" (Column N), which is $0 for paid bills.
   const amountDueColIndex = header.findIndex((h) => normalizeHeader(h) === 'Amount due');
-  let amountColIndex = header.findIndex((h) => normalizeHeader(h) === 'Amount');
-  if (amountColIndex < 0 || amountColIndex === amountDueColIndex) {
-    // Fallback: Tipalti BillList export often has Amount as 13th column (0-based index 12). Fragile if export format changes.
-    amountColIndex = header.length > 12 ? 12 : -1;
+  // Prefer exact "Amount"; also accept "Amount (USD)" etc. but never a column that is "Amount due".
+  let amountColIndex = header.findIndex((h) => {
+    const n = normalizeHeader(h);
+    return n === 'Amount' || (n.startsWith('Amount') && n !== 'Amount due' && !n.includes('Amount due'));
+  });
+  if (amountColIndex === amountDueColIndex) amountColIndex = -1;
+  const usePositionFallback = amountColIndex < 0;
+  if (usePositionFallback) {
+    amountColIndex = -1; // no single column; we'll use max of cols 12 & 13 below
   }
+  const parseAmount = (str) => parseFloat(String(str || '').replace(/[^0-9.-]/g, '')) || 0;
   const getAmountCents = (row) => {
-    const idx = amountColIndex >= 0 ? amountColIndex : -1;
-    if (idx < 0) return 0;
-    const str = (row[idx] || '').trim();
-    const num = parseFloat(String(str).replace(/[^0-9.-]/g, '')) || 0;
-    return Math.round(num * 100);
+    if (amountColIndex >= 0) {
+      const num = parseAmount((row[amountColIndex] || '').trim());
+      return Math.round(num * 100);
+    }
+    // Position fallback: read both M and N (0-based 12 and 13), use the larger so we get the total, not $0.
+    const at12 = row.length > 12 ? parseAmount((row[12] || '').trim()) : 0;
+    const at13 = row.length > 13 ? parseAmount((row[13] || '').trim()) : 0;
+    const total = Math.max(at12, at13);
+    return Math.round(total * 100);
   };
   const monthNames = 'Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec'.split(',');
   const parseBillDate = (s) => {

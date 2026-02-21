@@ -801,6 +801,11 @@ function parseCsvLine(line) {
   const out = [];
   let i = 0;
   while (i < line.length) {
+    if (line[i] === ',') {
+      out.push('');
+      i += 1;
+      continue;
+    }
     if (line[i] === '"') {
       i += 1;
       let field = '';
@@ -812,6 +817,7 @@ function parseCsvLine(line) {
         } else { field += line[i]; i += 1; }
       }
       out.push(field);
+      if (line[i] === ',') i += 1;
     } else {
       let field = '';
       while (i < line.length && line[i] !== ',') { field += line[i]; i += 1; }
@@ -819,6 +825,7 @@ function parseCsvLine(line) {
       if (line[i] === ',') i += 1;
     }
   }
+  if (line.endsWith(',')) out.push('');
   return out;
 }
 

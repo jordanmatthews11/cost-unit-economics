@@ -870,21 +870,33 @@ function parseBillComCsv(text) {
   return rows;
 }
 
-/** Parse Tipalti BillList-style CSV; return array of { vendor, amount_cents, date, status, category, notes }. Uses "Amount" (total), not "Amount due". */
+/** Normalize CSV header for matching: trim, collapse spaces, strip BOM/zero-width. */
+function normalizeHeader(h) {
+  const s = String(h ?? '')
+    .replace(/\uFEFF/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return s;
+}
+
+/** Parse Tipalti BillList-style CSV; return array of { vendor, amount_cents, date, status, category, notes }. Uses "Amount" (Column M) only, not "Amount due" (Column N). */
 function parseTipaltiBillsCsv(text) {
   const lines = text.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return [];
   const header = parseCsvLine(lines[0]);
   const get = (row, name) => {
-    const i = header.indexOf(name);
+    const i = header.findIndex((h) => normalizeHeader(h) === name);
     return i >= 0 ? (row[i] || '').trim() : '';
   };
-  // Use "Amount" (Column M) only; do not use "Amount due" (Column N), which is $0 for paid bills.
-  const amountColIndex = header.findIndex((h) => (h || '').trim() === 'Amount');
-  const amountDueColIndex = header.findIndex((h) => (h || '').trim() === 'Amount due');
+  // Use "Amount" (Column M) only; never use "Amount due" (Column N), which is $0 for paid bills.
+  const amountDueColIndex = header.findIndex((h) => normalizeHeader(h) === 'Amount due');
+  let amountColIndex = header.findIndex((h) => normalizeHeader(h) === 'Amount');
+  if (amountColIndex < 0 || amountColIndex === amountDueColIndex) {
+    // Fallback: Tipalti BillList export often has Amount as 13th column (0-based index 12). Fragile if export format changes.
+    amountColIndex = header.length > 12 ? 12 : -1;
+  }
   const getAmountCents = (row) => {
-    // Must be the "Amount" column and must not be the "Amount due" column (in case of column order quirks).
-    const idx = amountColIndex >= 0 && amountColIndex !== amountDueColIndex ? amountColIndex : -1;
+    const idx = amountColIndex >= 0 ? amountColIndex : -1;
     if (idx < 0) return 0;
     const str = (row[idx] || '').trim();
     const num = parseFloat(String(str).replace(/[^0-9.-]/g, '')) || 0;

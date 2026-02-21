@@ -69,6 +69,7 @@ module.exports = async function handler(req, res) {
         res.status(404).json({ error: 'Expense not found' });
         return;
       }
+      setCorsHeaders(res);
       res.status(200).json(row);
     } catch (err) {
       console.error('PATCH expense error:', err);
@@ -84,6 +85,7 @@ module.exports = async function handler(req, res) {
         res.status(404).json({ error: 'Expense not found' });
         return;
       }
+      setCorsHeaders(res);
       res.status(204).end();
     } catch (err) {
       console.error('DELETE expense error:', err);

@@ -26,6 +26,15 @@ module.exports = async function handler(req, res) {
     return;
   }
 
+  // If path is /api/expenses/:id and method is DELETE or PATCH, delegate to [id] handler
+  // (handles platforms that route these requests to index.js instead of [id].js)
+  const pathMatch = (req.url || req.originalUrl || '').match(/^\/api\/expenses\/([^/?#]+)/);
+  const method = (req.method || '').toUpperCase();
+  if (pathMatch && (method === 'DELETE' || method === 'PATCH' || method === 'OPTIONS')) {
+    const idHandler = require('./[id]');
+    return idHandler(req, res);
+  }
+
   if (req.method === 'GET') {
     try {
       const status = req.query.status || null;

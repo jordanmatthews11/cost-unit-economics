@@ -888,29 +888,32 @@ function parseTipaltiBillsCsv(text) {
     const i = header.findIndex((h) => normalizeHeader(h) === name);
     return i >= 0 ? (row[i] || '').trim() : '';
   };
-  // Use "Amount" (Column M) only; never use "Amount due" (Column N), which is $0 for paid bills.
+  // Use "Amount" (full bill) only; never use "Amount due" (Column N), which is $0 for paid bills.
   const amountDueColIndex = header.findIndex((h) => normalizeHeader(h) === 'Amount due');
-  // Prefer exact "Amount"; also accept "Amount (USD)" etc. but never a column that is "Amount due".
+  // Prefer exact "Amount"; also accept "Amount (USD)" etc. but never "Amount due".
   let amountColIndex = header.findIndex((h) => {
     const n = normalizeHeader(h);
     return n === 'Amount' || (n.startsWith('Amount') && n !== 'Amount due' && !n.includes('Amount due'));
   });
   if (amountColIndex === amountDueColIndex) amountColIndex = -1;
-  const usePositionFallback = amountColIndex < 0;
-  if (usePositionFallback) {
-    amountColIndex = -1; // no single column; we'll use max of cols 12 & 13 below
-  }
   const parseAmount = (str) => parseFloat(String(str || '').replace(/[^0-9.-]/g, '')) || 0;
   const getAmountCents = (row) => {
     if (amountColIndex >= 0) {
       const num = parseAmount((row[amountColIndex] || '').trim());
       return Math.round(num * 100);
     }
-    // Position fallback: read both M and N (0-based 12 and 13), use the larger so we get the total, not $0.
+    // Fallback when "Amount" header not found: use "Amount due" position and adjacent columns (M can be before or after N).
+    if (amountDueColIndex >= 0) {
+      const before = amountDueColIndex > 0 ? parseAmount((row[amountDueColIndex - 1] || '').trim()) : 0;
+      const due = parseAmount((row[amountDueColIndex] || '').trim());
+      const after = row.length > amountDueColIndex + 1 ? parseAmount((row[amountDueColIndex + 1] || '').trim()) : 0;
+      const total = Math.max(before, due, after);
+      return Math.round(total * 100);
+    }
+    // Last resort: fixed positions 12 and 13 (M and N) in case column order differs.
     const at12 = row.length > 12 ? parseAmount((row[12] || '').trim()) : 0;
     const at13 = row.length > 13 ? parseAmount((row[13] || '').trim()) : 0;
-    const total = Math.max(at12, at13);
-    return Math.round(total * 100);
+    return Math.round(Math.max(at12, at13) * 100);
   };
   const monthNames = 'Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec'.split(',');
   const parseBillDate = (s) => {

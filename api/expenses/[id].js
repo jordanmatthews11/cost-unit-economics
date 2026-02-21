@@ -2,14 +2,16 @@ const { getAuthUser } = require('../../lib/auth');
 const db = require('../../lib/db');
 
 function getIdFromRequest(req) {
-  if (!req.url) return null;
+  const raw = req.url || req.originalUrl || '';
+  if (!raw) return null;
+  let pathname;
   try {
-    const pathname = new URL(req.url).pathname;
-    const match = pathname.match(/\/api\/expenses\/([^/]+)$/);
-    return match ? match[1] : null;
+    pathname = raw.startsWith('http') ? new URL(raw).pathname : new URL(raw, 'http://localhost').pathname;
   } catch {
-    return null;
+    pathname = raw.split('?')[0];
   }
+  const match = pathname.match(/\/api\/expenses\/([^/]+)$/);
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
 module.exports = async function handler(req, res) {

@@ -14,7 +14,20 @@ function getIdFromRequest(req) {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+function setCorsHeaders(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  res.setHeader('Access-Control-Max-Age', '86400');
+}
+
 module.exports = async function handler(req, res) {
+  const method = (req.method || '').toUpperCase();
+  if (method === 'OPTIONS') {
+    setCorsHeaders(res);
+    res.status(204).end();
+    return;
+  }
   if (!process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
     res.status(503).json({ error: 'Server misconfigured', code: 'FIRESTORE_NOT_CONFIGURED' });
     return;
@@ -39,7 +52,7 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  if (req.method === 'PATCH') {
+  if (method === 'PATCH') {
     try {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
       const data = {};
@@ -64,7 +77,7 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  if (req.method === 'DELETE') {
+  if (method === 'DELETE') {
     try {
       const deleted = await db.deleteExpense(id, user.sub);
       if (!deleted) {

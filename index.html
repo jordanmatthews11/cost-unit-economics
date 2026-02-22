@@ -109,7 +109,21 @@
   <main id="panelBills" class="tab-panel app-hidden" role="tabpanel" aria-hidden="true">
     <section class="bills-section">
       <div class="bills-toolbar">
-        <div class="bills-filters">
+        <div class="bills-toolbar-left">
+          <div class="bills-actions">
+            <input type="file" id="billsCsvInput" accept=".csv,text/csv" class="app-hidden" aria-label="Import CSV">
+            <button type="button" class="btn btn-compact btn-secondary" id="billsImportCsvBtn">Import CSV</button>
+            <button type="button" class="btn btn-compact btn-secondary" id="billsDeleteSelectedBtn" disabled>Delete selected</button>
+            <button type="button" class="btn btn-compact btn-secondary" id="billsExportBtn">Export</button>
+            <button type="button" class="btn btn-compact btn-primary" id="billsAddBtn">Add expense</button>
+          </div>
+          <span class="bills-quicklinks">
+            Get expenses: <a href="https://spend.bill.com/" target="_blank" rel="noopener">Bill.com</a>
+            <span class="bills-quicklinks-sep">|</span>
+            <a href="https://hub.tipalti.com/" target="_blank" rel="noopener">Tipalti</a>
+          </span>
+        </div>
+        <div class="bills-toolbar-right bills-filters">
           <select id="billsFilterStatus" class="filter-select">
             <option value="">All statuses</option>
             <option value="pending">Pending</option>
@@ -133,22 +147,10 @@
             <option value="11">Nov</option>
             <option value="12">Dec</option>
           </select>
-          <input type="text" id="billsFilterVendor" class="filter-input" placeholder="Filter by vendor">
-          <input type="text" id="billsFilterCategory" class="filter-input" placeholder="Filter by category">
-        </div>
-        <div class="bills-actions">
-          <input type="file" id="billsCsvInput" accept=".csv,text/csv" class="app-hidden" aria-label="Import CSV">
-          <button type="button" class="btn btn-compact btn-secondary" id="billsImportCsvBtn">Import CSV</button>
-          <button type="button" class="btn btn-compact btn-secondary" id="billsDeleteSelectedBtn" disabled>Delete selected</button>
-          <button type="button" class="btn btn-compact btn-secondary" id="billsExportBtn">Export</button>
-          <button type="button" class="btn btn-compact btn-primary" id="billsAddBtn">Add expense</button>
+          <input type="text" id="billsFilterVendor" class="filter-input" placeholder="Vendor">
+          <input type="text" id="billsFilterCategory" class="filter-input" placeholder="Category">
         </div>
       </div>
-      <p class="bills-quicklinks">
-        Get expenses: <a href="https://spend.bill.com/" target="_blank" rel="noopener">Bill.com</a>
-        <span class="bills-quicklinks-sep">|</span>
-        <a href="https://hub.tipalti.com/" target="_blank" rel="noopener">Tipalti</a>
-      </p>
       <div id="billsMetrics" class="bills-metrics" aria-live="polite"></div>
       <div class="table-wrapper">
         <table class="bills-table" id="billsTable">

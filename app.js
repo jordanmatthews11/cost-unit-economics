@@ -689,6 +689,7 @@ async function apiFetch(path, options = {}) {
 let billsInitialized = false;
 let expensesList = [];
 let selectedExpenseIds = new Set();
+let billsMetricsCollapsed = false;
 
 async function showExpensesLoadErrorToast(res) {
   let msg = 'Could not load existing expenses';
@@ -775,8 +776,8 @@ function renderBillsTable() {
       <td>${escapeHtml(e.category || '—')}</td>
       <td>${e.third_party_invoice_url ? `<a href="${escapeAttr(e.third_party_invoice_url)}" target="_blank" rel="noopener">View</a>` : '—'}</td>
       <td>
-        <button type="button" class="btn btn-small btn-edit" data-id="${escapeAttr(e.id)}">Edit</button>
-        <button type="button" class="btn btn-small btn-delete" data-id="${escapeAttr(e.id)}">Delete</button>
+        <button type="button" class="btn btn-row-action btn-edit" data-id="${escapeAttr(e.id)}">Edit</button>
+        <button type="button" class="btn btn-row-action btn-delete" data-id="${escapeAttr(e.id)}">Delete</button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -922,26 +923,43 @@ function renderBillsMetrics(list) {
       (vendorMore > 0 ? `<li class="bills-metrics-more">+ ${vendorMore} more</li>` : '')
     : '<li class="bills-metrics-item bills-metrics-empty-line">—</li>';
 
+  const collapsedClass = billsMetricsCollapsed ? ' bills-metrics-collapsed' : '';
   el.innerHTML = `
     <div class="bills-metrics-inner">
-      <h3 class="bills-metrics-title">Summary</h3>
-      <p class="bills-metrics-total">Total: <strong class="bills-metrics-total-value">${fmt(totalCents)}</strong></p>
-      <div class="bills-metrics-grid">
-        <div class="bills-metrics-module">
-          <h4 class="bills-metrics-module-title">By year</h4>
-          <ul class="bills-metrics-list">${yearList}</ul>
-        </div>
-        <div class="bills-metrics-module">
-          <h4 class="bills-metrics-module-title">By month</h4>
-          <ul class="bills-metrics-list bills-metrics-list-scroll">${monthList}</ul>
-        </div>
-        <div class="bills-metrics-module">
-          <h4 class="bills-metrics-module-title">By vendor</h4>
-          <ul class="bills-metrics-list bills-metrics-list-scroll">${vendorList}</ul>
+      <button type="button" class="bills-metrics-toggle" id="billsMetricsToggle" aria-expanded="${!billsMetricsCollapsed}" aria-controls="billsMetricsBody">
+        <span class="bills-metrics-toggle-title">Summary</span>
+        <span class="bills-metrics-total-inline">Total: <strong class="bills-metrics-total-value">${fmt(totalCents)}</strong></span>
+        <span class="bills-metrics-chevron" aria-hidden="true">${billsMetricsCollapsed ? '▶' : '▼'}</span>
+      </button>
+      <div id="billsMetricsBody" class="bills-metrics-body${collapsedClass}" role="region">
+        <div class="bills-metrics-grid">
+          <div class="bills-metrics-module">
+            <h4 class="bills-metrics-module-title">By year</h4>
+            <ul class="bills-metrics-list">${yearList}</ul>
+          </div>
+          <div class="bills-metrics-module">
+            <h4 class="bills-metrics-module-title">By month</h4>
+            <ul class="bills-metrics-list bills-metrics-list-scroll">${monthList}</ul>
+          </div>
+          <div class="bills-metrics-module">
+            <h4 class="bills-metrics-module-title">By vendor</h4>
+            <ul class="bills-metrics-list bills-metrics-list-scroll">${vendorList}</ul>
+          </div>
         </div>
       </div>
     </div>
   `;
+  const toggleBtn = document.getElementById('billsMetricsToggle');
+  const bodyEl = document.getElementById('billsMetricsBody');
+  if (toggleBtn && bodyEl) {
+    toggleBtn.addEventListener('click', () => {
+      billsMetricsCollapsed = !billsMetricsCollapsed;
+      bodyEl.classList.toggle('bills-metrics-collapsed', billsMetricsCollapsed);
+      toggleBtn.setAttribute('aria-expanded', String(!billsMetricsCollapsed));
+      const chevron = toggleBtn.querySelector('.bills-metrics-chevron');
+      if (chevron) chevron.textContent = billsMetricsCollapsed ? '▶' : '▼';
+    });
+  }
   el.classList.remove('app-hidden');
 }
 

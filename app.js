@@ -335,9 +335,10 @@ function getTeamTotalForPeriod(teamId, ym) {
 }
 
 function getTeamPeriods(teamId) {
-  return state.unitEconomics.teamPeriods && state.unitEconomics.teamPeriods[teamId]
-    ? [...state.unitEconomics.teamPeriods[teamId]]
+  const raw = state.unitEconomics.teamPeriods && state.unitEconomics.teamPeriods[teamId]
+    ? state.unitEconomics.teamPeriods[teamId]
     : [];
+  return [...raw].sort();
 }
 
 function getTeamAllPeriodsTotal(teamId) {
@@ -1075,23 +1076,39 @@ function renderBillsMetrics(list) {
     el.classList.remove('app-hidden');
     return;
   }
+  const TEAM_BUILDING_CATEGORIES = [
+    'Travel and Entertainment: Team Travel & Meals',
+    'General and Admin: Gifts'
+  ];
+  const TEAM_BUILDING_LABEL = 'Travel and Entertainment/Team Building';
+
   const byYear = {};
   const byMonth = {};
   const byVendor = {};
+  let teamBuildingCents = 0;
   list.forEach((e) => {
     const cents = e.amount_cents || 0;
     const year = (e.date || '').slice(0, 4);
     const ym = (e.date || '').slice(0, 7);
     if (year) byYear[year] = (byYear[year] || 0) + cents;
     if (ym) byMonth[ym] = (byMonth[ym] || 0) + cents;
-    const v = e.vendor || '—';
-    byVendor[v] = (byVendor[v] || 0) + cents;
+    const category = (e.category || '').trim();
+    if (TEAM_BUILDING_CATEGORIES.includes(category)) {
+      teamBuildingCents += cents;
+    } else {
+      const v = e.vendor || '—';
+      byVendor[v] = (byVendor[v] || 0) + cents;
+    }
   });
   const fmt = (c) => '$' + (c / 100).toFixed(2);
   const totalCents = list.reduce((sum, e) => sum + (e.amount_cents || 0), 0);
   const yearEntries = Object.entries(byYear).sort((a, b) => b[0].localeCompare(a[0]));
   const monthEntries = Object.entries(byMonth).sort((a, b) => b[0].localeCompare(a[0]));
-  const vendorEntries = Object.entries(byVendor).sort((a, b) => b[1] - a[1]);
+  const vendorEntriesRaw = Object.entries(byVendor);
+  if (teamBuildingCents > 0) {
+    vendorEntriesRaw.push([TEAM_BUILDING_LABEL, teamBuildingCents]);
+  }
+  const vendorEntries = vendorEntriesRaw.sort((a, b) => b[1] - a[1]);
   const maxMonths = 24;
   const maxVendors = 20;
   const monthShow = monthEntries.slice(0, maxMonths);

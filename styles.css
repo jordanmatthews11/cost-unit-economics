@@ -489,6 +489,12 @@ header {
   border-radius: 4px;
 }
 
+.bills-table .btn-row-action {
+  padding: 0.06rem 0.16rem;
+  font-size: 0.58rem;
+  border-radius: 3px;
+}
+
 .btn-edit {
   background: var(--color-primary-light);
   color: var(--color-primary);
@@ -1116,7 +1122,7 @@ h2 {
 
 .line-item-row .line-item-label {
   flex: 1;
-  min-width: 0;
+  min-width: 12rem;
   padding: 0.4rem 0.5rem;
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -1124,7 +1130,8 @@ h2 {
 }
 
 .line-item-row .line-item-amount {
-  width: 5rem;
+  width: 4.5rem;
+  flex-shrink: 0;
   padding: 0.4rem 0.5rem;
   border: 1.5px solid var(--color-border);
   border-radius: var(--radius-sm);

@@ -709,6 +709,10 @@ function recalculate() {
 
 // ---- Breakdown Table ----
 
+function getPeriodGrandTotal(ym) {
+  return TEAMS.reduce((sum, t) => sum + getTeamTotalForPeriod(t.id, ym), 0);
+}
+
 function renderBreakdownTable(grandTotal, totalProjects, totalResponses) {
   const tbody = document.getElementById('breakdownBody');
   tbody.innerHTML = '';
@@ -720,10 +724,18 @@ function renderBreakdownTable(grandTotal, totalProjects, totalResponses) {
     const pct = grandTotal > 0 ? teamCost / grandTotal : 0;
     const perProject = teamProjects > 0 ? teamCost / teamProjects : 0;
     const perResponse = teamResponses > 0 ? teamCost / teamResponses : 0;
+    const expandedKey = `breakdown_${team.id}`;
+    const expanded = state.unitEconomics.sectionsExpanded[expandedKey] === true;
+    const periods = getTeamPeriods(team.id);
 
-    const row = document.createElement('tr');
-    row.innerHTML = `
-      <td><strong>${team.name}</strong></td>
+    const teamRow = document.createElement('tr');
+    teamRow.className = 'breakdown-team-row';
+    teamRow.setAttribute('data-team', team.id);
+    teamRow.setAttribute('role', 'button');
+    teamRow.setAttribute('tabindex', '0');
+    teamRow.setAttribute('aria-expanded', String(expanded));
+    teamRow.innerHTML = `
+      <td><span class="breakdown-toggle" aria-hidden="true">${expanded ? 'v' : '>'}</span> <strong>${escapeHtml(team.name)}</strong></td>
       <td>${formatCurrency(teamCost)}</td>
       <td>${formatPercent(pct)}</td>
       <td>${formatNumber(teamProjects)}</td>
@@ -731,13 +743,50 @@ function renderBreakdownTable(grandTotal, totalProjects, totalResponses) {
       <td>${formatNumber(teamResponses)}</td>
       <td>${formatCurrency(perResponse)}</td>
     `;
-    tbody.appendChild(row);
+    teamRow.addEventListener('click', () => {
+      state.unitEconomics.sectionsExpanded[expandedKey] = !state.unitEconomics.sectionsExpanded[expandedKey];
+      saveUnitEconomicsToStorage();
+      renderBreakdownTable(getYearGrandTotal(), getYearTotalProjects(), getYearTotalResponses());
+    });
+    teamRow.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        teamRow.click();
+      }
+    });
+    tbody.appendChild(teamRow);
+
+    periods.forEach((ym) => {
+      const periodCost = getTeamTotalForPeriod(team.id, ym);
+      const periodProjects = getMonthDataFor(team.id, ym).numProjects || 0;
+      const periodResponses = getMonthDataFor(team.id, ym).numResponses || 0;
+      const periodGrandTotal = getPeriodGrandTotal(ym);
+      const periodPct = periodGrandTotal > 0 ? periodCost / periodGrandTotal : 0;
+      const periodPerProject = periodProjects > 0 ? periodCost / periodProjects : 0;
+      const periodPerResponse = periodResponses > 0 ? periodCost / periodResponses : 0;
+
+      const periodRow = document.createElement('tr');
+      periodRow.className = 'breakdown-period-row';
+      periodRow.setAttribute('data-team', team.id);
+      periodRow.setAttribute('data-ym', ym);
+      periodRow.hidden = !expanded;
+      periodRow.innerHTML = `
+        <td class="breakdown-period-label">${escapeHtml(getPeriodLabel(ym))}</td>
+        <td>${formatCurrency(periodCost)}</td>
+        <td>${formatPercent(periodPct)}</td>
+        <td>${formatNumber(periodProjects)}</td>
+        <td>${formatCurrency(periodPerProject)}</td>
+        <td>${formatNumber(periodResponses)}</td>
+        <td>${formatCurrency(periodPerResponse)}</td>
+      `;
+      tbody.appendChild(periodRow);
+    });
   });
 
-  // Totals row
   const overallCostPerProject = totalProjects > 0 ? grandTotal / totalProjects : 0;
   const overallCostPerResponse = totalResponses > 0 ? grandTotal / totalResponses : 0;
   const totalsRow = document.createElement('tr');
+  totalsRow.className = 'breakdown-totals-row';
   totalsRow.innerHTML = `
     <td><strong>Total</strong></td>
     <td><strong>${formatCurrency(grandTotal)}</strong></td>
@@ -784,7 +833,7 @@ function exportCSV() {
   const totalProjects = getYearTotalProjects();
   const totalResponses = getYearTotalResponses();
 
-  let csv = 'Team,Team Cost,% of Total,Projects,Cost per Project,Response Groups,Cost per Response Group\n';
+  let csv = 'Team,Period,Team Cost,% of Total,Projects,Cost per Project,Response Groups,Cost per Response Group\n';
 
   TEAMS.forEach((team) => {
     const teamCost = getTeamYearTotal(team.id);
@@ -793,12 +842,22 @@ function exportCSV() {
     const pct = grandTotal > 0 ? ((teamCost / grandTotal) * 100).toFixed(1) + '%' : '0.0%';
     const perProject = teamProjects > 0 ? (teamCost / teamProjects).toFixed(2) : '0.00';
     const perResponse = teamResponses > 0 ? (teamCost / teamResponses).toFixed(2) : '0.00';
-    csv += `"${team.name}",${teamCost.toFixed(2)},${pct},${teamProjects},${perProject},${teamResponses},${perResponse}\n`;
+    csv += `"${team.name}","(all)",${teamCost.toFixed(2)},${pct},${teamProjects},${perProject},${teamResponses},${perResponse}\n`;
+    getTeamPeriods(team.id).forEach((ym) => {
+      const periodCost = getTeamTotalForPeriod(team.id, ym);
+      const periodProjects = getMonthDataFor(team.id, ym).numProjects || 0;
+      const periodResponses = getMonthDataFor(team.id, ym).numResponses || 0;
+      const periodGrandTotal = getPeriodGrandTotal(ym);
+      const periodPct = periodGrandTotal > 0 ? ((periodCost / periodGrandTotal) * 100).toFixed(1) + '%' : '0.0%';
+      const periodPerProject = periodProjects > 0 ? (periodCost / periodProjects).toFixed(2) : '0.00';
+      const periodPerResponse = periodResponses > 0 ? (periodCost / periodResponses).toFixed(2) : '0.00';
+      csv += `"${team.name}","${getPeriodLabel(ym)}",${periodCost.toFixed(2)},${periodPct},${periodProjects},${periodPerProject},${periodResponses},${periodPerResponse}\n`;
+    });
   });
 
   const overallCostPerProject = totalProjects > 0 ? (grandTotal / totalProjects).toFixed(2) : '0.00';
   const overallCostPerResponse = totalResponses > 0 ? (grandTotal / totalResponses).toFixed(2) : '0.00';
-  csv += `"Total",${grandTotal.toFixed(2)},100.0%,${totalProjects},${overallCostPerProject},${totalResponses},${overallCostPerResponse}\n`;
+  csv += `"Total","(all)",${grandTotal.toFixed(2)},100.0%,${totalProjects},${overallCostPerProject},${totalResponses},${overallCostPerResponse}\n`;
 
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
@@ -838,6 +897,16 @@ function copySummary() {
     summary += `\n${team.name}: ${formatCurrency(teamCost)} (${pct})\n`;
     summary += `  Projects: ${formatNumber(teamProjects)} | Cost/Project: ${perProject}\n`;
     summary += `  Response Groups: ${formatNumber(teamResponses)} | Cost/Response Group: ${perResponse}\n`;
+    getTeamPeriods(team.id).forEach((ym) => {
+      const periodCost = getTeamTotalForPeriod(team.id, ym);
+      const periodProjects = getMonthDataFor(team.id, ym).numProjects || 0;
+      const periodResponses = getMonthDataFor(team.id, ym).numResponses || 0;
+      const periodGrandTotal = getPeriodGrandTotal(ym);
+      const periodPct = periodGrandTotal > 0 ? formatPercent(periodCost / periodGrandTotal) : '0.0%';
+      const periodPerProject = periodProjects > 0 ? formatCurrency(periodCost / periodProjects) : '$0.00';
+      const periodPerResponse = periodResponses > 0 ? formatCurrency(periodCost / periodResponses) : '$0.00';
+      summary += `  ${getPeriodLabel(ym)}: ${formatCurrency(periodCost)} (${periodPct}) | Projects: ${formatNumber(periodProjects)} | Cost/Proj: ${periodPerProject} | RGs: ${formatNumber(periodResponses)} | Cost/RG: ${periodPerResponse}\n`;
+    });
   });
 
   navigator.clipboard.writeText(summary).then(() => {

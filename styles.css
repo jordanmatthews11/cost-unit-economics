@@ -1418,6 +1418,33 @@ tbody tr:hover {
   background: var(--color-bg);
 }
 
+.breakdown-team-row {
+  cursor: pointer;
+  font-weight: 600;
+}
+.breakdown-team-row:hover {
+  background: var(--color-primary-light) !important;
+}
+.breakdown-team-row .breakdown-toggle {
+  display: inline-block;
+  width: 1.2em;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+.breakdown-period-row {
+  font-weight: 400;
+}
+.breakdown-period-row td:first-child {
+  padding-left: 1.5rem;
+}
+.breakdown-period-row .breakdown-period-label {
+  color: var(--color-text-muted);
+  font-size: 0.88em;
+}
+.breakdown-totals-row td {
+  border-bottom: none;
+}
+
 /* ---- Chart ---- */
 
 .chart-section {

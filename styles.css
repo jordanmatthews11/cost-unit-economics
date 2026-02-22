@@ -292,6 +292,18 @@ header {
   vertical-align: middle;
 }
 
+.bills-table th:last-child,
+.bills-table td:last-child {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.bills-table td:last-child {
+  display: inline-flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
 .bills-row-checkbox {
   cursor: pointer;
 }
@@ -471,9 +483,10 @@ header {
 }
 
 .btn-row-action {
-  padding: 0.2rem 0.35rem;
-  font-size: 0.72rem;
-  margin-right: 0.2rem;
+  padding: 0.12rem 0.28rem;
+  font-size: 0.65rem;
+  font-weight: 500;
+  border-radius: 4px;
 }
 
 .btn-edit {
@@ -876,11 +889,11 @@ h2 {
   white-space: nowrap;
 }
 
-.ue-month-table tbody tr:nth-child(even) {
+.ue-month-table tbody tr.ue-data-row:nth-of-type(odd) {
   background: rgba(0, 0, 0, 0.02);
 }
 
-.ue-month-table tbody tr:hover {
+.ue-month-table tbody tr.ue-data-row:hover {
   background: rgba(109, 54, 255, 0.04);
 }
 
@@ -922,6 +935,145 @@ h2 {
 
 .ue-other-cell .ue-edit-other {
   flex-shrink: 0;
+}
+
+.ue-avg-cell {
+  white-space: nowrap;
+  color: var(--color-text-muted);
+}
+
+.ue-actions-cell {
+  white-space: nowrap;
+}
+
+/* Collapsible team sections */
+.ue-collapsible-section {
+  margin-bottom: 1rem;
+}
+
+.ue-section-header {
+  margin-bottom: 0;
+}
+
+.ue-section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-family: var(--font);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.ue-section-toggle:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.ue-section-toggle:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-primary-focus);
+}
+
+.ue-section-chevron {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+
+.ue-section-toggle[aria-expanded="false"] .ue-section-chevron {
+  transform: rotate(-135deg);
+}
+
+.ue-section-title {
+  flex: 0 0 auto;
+}
+
+.ue-section-summary {
+  flex: 1;
+  font-weight: 400;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin-left: 0.5rem;
+}
+
+.ue-section-body {
+  padding-top: 0.75rem;
+}
+
+.ue-section-body[hidden] {
+  display: none;
+}
+
+/* Detail row: inline expenses under each period */
+.ue-detail-row {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.ue-detail-row .ue-detail-cell {
+  padding: 0.5rem 0.75rem 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+.ue-expenses-block {
+  border-left: 3px solid var(--color-border);
+  padding-left: 0.75rem;
+}
+
+.ue-expenses-block .line-items-title {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.ue-inline-line-items {
+  margin-bottom: 0.5rem;
+}
+
+.ue-expenses-block .ue-add-line-item {
+  margin-top: 0.25rem;
+}
+
+/* Add period row */
+.ue-add-period-cell {
+  padding: 0.75rem 0.5rem;
+  border-bottom: none;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.ue-add-period-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ue-add-period-wrap label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.ue-period-month,
+.ue-period-year {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-family: var(--font);
+  background: var(--color-surface);
+  color: var(--color-text);
 }
 
 .table-wrapper {

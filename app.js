@@ -181,7 +181,7 @@ const VOLUME_FIELDS = [
 
 const COST_FIELDS = [
   { key: 'headcount', label: 'Headcount', placeholder: 'e.g. 5', step: '1' },
-  { key: 'avgSalary', label: 'Avg. Salary per Person ($)', placeholder: 'e.g. 95000', step: '0.01' },
+  { key: 'totalSalary', label: 'Total Salary ($)', placeholder: 'e.g. 475000', step: '0.01' },
 ];
 
 const UNIT_ECONOMICS_STORAGE_KEY = 'cost_unit_economics_monthly';
@@ -201,6 +201,8 @@ const state = {
     currentMonth: getCurrentMonthString(),
     currentYear: new Date().getFullYear(),
     months: {},
+    teamPeriods: {},
+    sectionsExpanded: {},
   },
 };
 
@@ -222,6 +224,9 @@ function ensureMonthData(month) {
       t = state.unitEconomics.months[month][team.id];
     }
     if (!Array.isArray(t.lineItems)) t.lineItems = [];
+    if (t.avgSalary != null && (t.totalSalary == null || t.totalSalary === 0)) {
+      t.totalSalary = (t.headcount || 0) * (t.avgSalary || 0);
+    }
   });
   return state.unitEconomics.months[month];
 }
@@ -257,7 +262,23 @@ function loadUnitEconomicsFromStorage() {
       state.unitEconomics.months = parsed.months;
       Object.keys(state.unitEconomics.months).forEach((m) => ensureMonthData(m));
     }
-    ensureYearMonths(state.unitEconomics.currentYear);
+    if (parsed.sectionsExpanded && typeof parsed.sectionsExpanded === 'object') {
+      state.unitEconomics.sectionsExpanded = parsed.sectionsExpanded;
+    }
+    if (parsed.teamPeriods && typeof parsed.teamPeriods === 'object') {
+      state.unitEconomics.teamPeriods = parsed.teamPeriods;
+    } else {
+      const year = state.unitEconomics.currentYear;
+      const fallbackKeys = getYearMonthKeys(year);
+      TEAMS.forEach((team) => {
+        const existing = [];
+        Object.keys(state.unitEconomics.months || {}).forEach((ym) => {
+          const t = state.unitEconomics.months[ym] && state.unitEconomics.months[ym][team.id];
+          if (t && typeof t === 'object') existing.push(ym);
+        });
+        state.unitEconomics.teamPeriods[team.id] = existing.length > 0 ? [...new Set(existing)].sort() : [...fallbackKeys];
+      });
+    }
   } catch (_) {}
 }
 
@@ -297,16 +318,50 @@ function parseNumericInput(value) {
 
 function getTeamTotal(teamId) {
   const t = getMonthData(teamId);
-  const salaryCost = (t.headcount || 0) * (t.avgSalary || 0);
+  const salaryCost = Number(t.totalSalary) || 0;
   const lineTotal = (t.lineItems || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   return salaryCost + lineTotal;
 }
 
 function getTeamTotalForMonth(teamId, ym) {
   const t = getMonthDataFor(teamId, ym);
-  const salaryCost = (t.headcount || 0) * (t.avgSalary || 0);
+  const salaryCost = Number(t.totalSalary) || 0;
   const lineTotal = (t.lineItems || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   return salaryCost + lineTotal;
+}
+
+function getTeamTotalForPeriod(teamId, ym) {
+  return getTeamTotalForMonth(teamId, ym);
+}
+
+function getTeamPeriods(teamId) {
+  return state.unitEconomics.teamPeriods && state.unitEconomics.teamPeriods[teamId]
+    ? [...state.unitEconomics.teamPeriods[teamId]]
+    : [];
+}
+
+function getTeamAllPeriodsTotal(teamId) {
+  return getTeamPeriods(teamId).reduce((sum, ym) => sum + getTeamTotalForPeriod(teamId, ym), 0);
+}
+
+function getTeamAllPeriodsProjects(teamId) {
+  return getTeamPeriods(teamId).reduce((sum, ym) => sum + (getMonthDataFor(teamId, ym).numProjects || 0), 0);
+}
+
+function getTeamAllPeriodsResponses(teamId) {
+  return getTeamPeriods(teamId).reduce((sum, ym) => sum + (getMonthDataFor(teamId, ym).numResponses || 0), 0);
+}
+
+function getGrandTotalAllPeriods() {
+  return TEAMS.reduce((sum, team) => sum + getTeamAllPeriodsTotal(team.id), 0);
+}
+
+function getTotalProjectsAllPeriods() {
+  return TEAMS.reduce((sum, team) => sum + getTeamAllPeriodsProjects(team.id), 0);
+}
+
+function getTotalResponsesAllPeriods() {
+  return TEAMS.reduce((sum, team) => sum + getTeamAllPeriodsResponses(team.id), 0);
 }
 
 function getGrandTotal() {
@@ -322,109 +377,156 @@ function getTotalResponses() {
 }
 
 function getTeamYearTotal(teamId) {
-  const year = state.unitEconomics.currentYear;
-  return getYearMonthKeys(year).reduce((sum, ym) => sum + getTeamTotalForMonth(teamId, ym), 0);
+  return getTeamAllPeriodsTotal(teamId);
 }
 
 function getTeamYearProjects(teamId) {
-  const year = state.unitEconomics.currentYear;
-  return getYearMonthKeys(year).reduce((sum, ym) => sum + (getMonthDataFor(teamId, ym).numProjects || 0), 0);
+  return getTeamAllPeriodsProjects(teamId);
 }
 
 function getTeamYearResponses(teamId) {
-  const year = state.unitEconomics.currentYear;
-  return getYearMonthKeys(year).reduce((sum, ym) => sum + (getMonthDataFor(teamId, ym).numResponses || 0), 0);
+  return getTeamAllPeriodsResponses(teamId);
 }
 
 function getYearGrandTotal() {
-  return TEAMS.reduce((sum, team) => sum + getTeamYearTotal(team.id), 0);
+  return getGrandTotalAllPeriods();
 }
 
 function getYearTotalProjects() {
-  return TEAMS.reduce((sum, team) => sum + getTeamYearProjects(team.id), 0);
+  return getTotalProjectsAllPeriods();
 }
 
 function getYearTotalResponses() {
-  return TEAMS.reduce((sum, team) => sum + getTeamYearResponses(team.id), 0);
+  return getTotalResponsesAllPeriods();
 }
 
 // ---- Render Team Cards ----
-
-function renderLineItemsList(teamId) {
-  const items = getMonthData(teamId).lineItems || [];
-  if (items.length === 0) {
-    return '<ul class="line-items-list" data-team="' + teamId + '"></ul>';
-  }
-  const list = items.map((item) => {
-    const label = typeof item.label === 'string' ? item.label.replace(/"/g, '&quot;') : '';
-    const amount = Number(item.amount) || 0;
-    return `<li class="line-item-row" data-team="${teamId}" data-line-id="${item.id}">
-      <input type="text" class="line-item-label" value="${label}" placeholder="Label" data-team="${teamId}" data-line-id="${item.id}">
-      <input type="number" class="line-item-amount" value="${amount}" min="0" step="0.01" placeholder="0" data-team="${teamId}" data-line-id="${item.id}">
-      <button type="button" class="btn btn-small btn-compact btn-delete line-item-remove" data-team="${teamId}" data-line-id="${item.id}" aria-label="Remove">Remove</button>
-    </li>`;
-  }).join('');
-  return '<ul class="line-items-list" data-team="' + teamId + '">' + list + '</ul>';
-}
 
 function getLineItemsTotal(teamId, ym) {
   const t = getMonthDataFor(teamId, ym);
   return (t.lineItems || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
 }
 
+function getPeriodLabel(ym) {
+  const [y, m] = (ym || '').split('-');
+  const monthLabel = m ? (MONTH_LABELS[parseInt(m, 10) - 1] || m) : ym;
+  return y && monthLabel ? `${monthLabel} ${y}` : ym || '';
+}
+
+function renderInlineLineItems(teamId, ym) {
+  const items = getMonthDataFor(teamId, ym).lineItems || [];
+  const list = items.map((item) => {
+    const label = typeof item.label === 'string' ? item.label.replace(/"/g, '&quot;') : '';
+    const amount = Number(item.amount) || 0;
+    return `<li class="line-item-row ue-inline-line-item" data-team="${teamId}" data-month="${ym}" data-line-id="${item.id}">
+      <input type="text" class="line-item-label" value="${label}" placeholder="Label" data-team="${teamId}" data-month="${ym}" data-line-id="${item.id}">
+      <input type="number" class="line-item-amount" value="${amount}" min="0" step="0.01" placeholder="0" data-team="${teamId}" data-month="${ym}" data-line-id="${item.id}">
+      <button type="button" class="btn btn-small btn-compact btn-delete line-item-remove" data-team="${teamId}" data-month="${ym}" data-line-id="${item.id}" aria-label="Remove">Remove</button>
+    </li>`;
+  }).join('');
+  return `<ul class="line-items-list ue-inline-line-items" data-team="${teamId}" data-month="${ym}">${list}</ul>
+    <button type="button" class="btn btn-small btn-compact btn-secondary ue-add-line-item" data-team="${teamId}" data-month="${ym}">Add expense</button>`;
+}
+
 function renderUnitEconomicsGrid() {
   const container = document.getElementById('unitEconomicsTeamsContainer');
   if (!container) return;
-  const year = state.unitEconomics.currentYear;
-  ensureYearMonths(year);
-  const monthKeys = getYearMonthKeys(year);
   container.innerHTML = '';
 
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
+
   TEAMS.forEach((team) => {
+    const periods = getTeamPeriods(team.id);
     const section = document.createElement('div');
-    section.className = 'ue-team-section';
+    section.className = 'ue-team-section ue-collapsible-section';
     section.setAttribute('data-team', team.id);
+    const expanded = state.unitEconomics.sectionsExpanded[team.id] !== false;
+    const sectionId = `ue-section-${team.id}`;
+    const totalCost = getTeamAllPeriodsTotal(team.id);
+    const totalProjects = getTeamAllPeriodsProjects(team.id);
+    const summaryText = `${periods.length} period${periods.length !== 1 ? 's' : ''} · ${formatCurrency(totalCost)} total · ${formatNumber(totalProjects)} projects`;
+
     let rows = '';
-    monthKeys.forEach((ym, idx) => {
+    periods.forEach((ym) => {
       const data = getMonthDataFor(team.id, ym);
-      const salary = (data.headcount || 0) * (data.avgSalary || 0);
+      const totalSalary = Number(data.totalSalary) || 0;
+      const hc = Number(data.headcount) || 0;
+      const avgPerPerson = hc > 0 ? totalSalary / hc : 0;
       const other = getLineItemsTotal(team.id, ym);
-      const monthLabel = MONTH_LABELS[idx] || ym;
+      const periodLabel = getPeriodLabel(ym);
       const projVal = data.numProjects !== undefined && data.numProjects !== '' ? Number(data.numProjects) : '';
       const respVal = data.numResponses !== undefined && data.numResponses !== '' ? Number(data.numResponses) : '';
       const hcVal = data.headcount !== undefined && data.headcount !== '' ? Number(data.headcount) : '';
-      const salVal = data.avgSalary !== undefined && data.avgSalary !== '' ? Number(data.avgSalary) : '';
+      const salVal = data.totalSalary !== undefined && data.totalSalary !== '' ? Number(data.totalSalary) : '';
       rows += `
-        <tr data-ym="${ym}">
-          <td class="ue-month-label">${monthLabel}</td>
+        <tr data-ym="${ym}" class="ue-data-row">
+          <td class="ue-month-label">${periodLabel}</td>
           <td><input type="number" data-team="${team.id}" data-month="${ym}" data-field="numProjects" min="0" step="1" placeholder="0" value="${projVal}"></td>
           <td><input type="number" data-team="${team.id}" data-month="${ym}" data-field="numResponses" min="0" step="1" placeholder="0" value="${respVal}"></td>
           <td><input type="number" data-team="${team.id}" data-month="${ym}" data-field="headcount" min="0" step="1" placeholder="0" value="${hcVal}"></td>
-          <td><input type="number" data-team="${team.id}" data-month="${ym}" data-field="avgSalary" min="0" step="0.01" placeholder="0" value="${salVal}"></td>
-          <td class="ue-salary-cell">${formatCurrency(salary)}</td>
+          <td><input type="number" data-team="${team.id}" data-month="${ym}" data-field="totalSalary" min="0" step="0.01" placeholder="0" value="${salVal}"></td>
+          <td class="ue-avg-cell">${hc > 0 ? formatCurrency(avgPerPerson) : '—'}</td>
           <td class="ue-other-cell">
             <span class="ue-other-sum">${formatCurrency(other)}</span>
-            <button type="button" class="btn btn-row-action btn-edit ue-edit-other" data-team="${team.id}" data-month="${ym}" aria-label="Edit line items">Edit</button>
+          </td>
+          <td class="ue-actions-cell">
+            <button type="button" class="btn btn-row-action btn-delete ue-remove-period" data-team="${team.id}" data-month="${ym}" aria-label="Remove period">Remove</button>
+          </td>
+        </tr>
+        <tr class="ue-detail-row" data-ym="${ym}" data-team="${team.id}">
+          <td colspan="8" class="ue-detail-cell">
+            <div class="ue-expenses-block">
+              <span class="line-items-title">Other expenses</span>
+              ${renderInlineLineItems(team.id, ym)}
+            </div>
           </td>
         </tr>`;
     });
+
+    const colCount = 8;
     section.innerHTML = `
-      <h3 class="ue-team-title">${team.name}</h3>
-      <div class="table-wrapper">
-        <table class="ue-month-table">
-          <thead>
-            <tr>
-              <th>Month</th>
-              <th>Projects</th>
-              <th>Response Groups</th>
-              <th>Headcount</th>
-              <th>Avg Salary ($)</th>
-              <th>Salary</th>
-              <th>Other</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
+      <div class="ue-section-header" role="region" aria-label="${team.name}">
+        <button type="button" class="ue-section-toggle" aria-expanded="${expanded}" aria-controls="${sectionId}" data-team="${team.id}">
+          <span class="ue-section-chevron" aria-hidden="true"></span>
+          <span class="ue-section-title">${team.name}</span>
+          <span class="ue-section-summary">${summaryText}</span>
+        </button>
+      </div>
+      <div id="${sectionId}" class="ue-section-body" ${expanded ? '' : 'hidden'}>
+        <div class="table-wrapper">
+          <table class="ue-month-table">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>Projects</th>
+                <th>Response Groups</th>
+                <th>Headcount</th>
+                <th>Total Salary ($)</th>
+                <th>Avg per person</th>
+                <th>Other</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+            <tfoot>
+              <tr>
+                <td colspan="${colCount}" class="ue-add-period-cell">
+                  <div class="ue-add-period-wrap">
+                    <label for="ue-month-${team.id}">Add period</label>
+                    <select id="ue-month-${team.id}" class="ue-period-month" data-team="${team.id}" aria-label="Month">
+                      ${MONTH_LABELS.map((name, i) => `<option value="${String(i + 1).padStart(2, '0')}">${name}</option>`).join('')}
+                    </select>
+                    <select class="ue-period-year" data-team="${team.id}" aria-label="Year">
+                      ${yearOptions.map((y) => `<option value="${y}"${y === currentYear ? ' selected' : ''}>${y}</option>`).join('')}
+                    </select>
+                    <button type="button" class="btn btn-small btn-compact btn-secondary ue-add-period-btn" data-team="${team.id}">Add month</button>
+                  </div>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </div>`;
     container.appendChild(section);
   });
@@ -432,33 +534,90 @@ function renderUnitEconomicsGrid() {
   container.querySelectorAll('input[data-team][data-month][data-field]').forEach((input) => {
     input.addEventListener('input', handleGridInput);
   });
-  container.querySelectorAll('.ue-edit-other').forEach((btn) => {
-    btn.addEventListener('click', openLineItemsModal);
+  container.querySelectorAll('.ue-add-period-btn').forEach((btn) => {
+    btn.addEventListener('click', handleAddPeriod);
+  });
+  container.querySelectorAll('.ue-remove-period').forEach((btn) => {
+    btn.addEventListener('click', handleRemovePeriod);
+  });
+  container.querySelectorAll('.ue-section-toggle').forEach((btn) => {
+    btn.addEventListener('click', toggleSection);
+  });
+  container.querySelectorAll('.ue-add-line-item').forEach((btn) => {
+    btn.addEventListener('click', handleAddLineItemInline);
+  });
+  container.querySelectorAll('.ue-inline-line-items').forEach((ul) => {
+    ul.querySelectorAll('.line-item-label, .line-item-amount').forEach((input) => {
+      input.addEventListener('change', handleLineItemChangeInline);
+    });
+    ul.querySelectorAll('.line-item-remove').forEach((b) => {
+      b.addEventListener('click', handleRemoveLineItemInline);
+    });
   });
 }
 
-function handleAddLineItem(e) {
+function handleAddPeriod(e) {
   const teamId = e.target.dataset.team;
-  const month = state.unitEconomics.currentMonth;
-  ensureMonthData(month);
-  const list = state.unitEconomics.months[month][teamId].lineItems;
+  const section = document.querySelector(`#unitEconomicsTeamsContainer [data-team="${teamId}"]`);
+  const monthSelect = section && section.querySelector('.ue-period-month');
+  const yearSelect = section && section.querySelector('.ue-period-year');
+  if (!monthSelect || !yearSelect) return;
+  const month = monthSelect.value;
+  const year = yearSelect.value;
+  const ym = `${year}-${month}`;
+  if (!state.unitEconomics.teamPeriods[teamId]) state.unitEconomics.teamPeriods[teamId] = [];
+  if (state.unitEconomics.teamPeriods[teamId].includes(ym)) return;
+  state.unitEconomics.teamPeriods[teamId].push(ym);
+  ensureMonthData(ym);
+  saveUnitEconomicsToStorage();
+  renderUnitEconomicsGrid();
+  recalculate();
+}
+
+function handleRemovePeriod(e) {
+  const { team: teamId, month: ym } = e.target.dataset;
+  if (!teamId || !ym) return;
+  const arr = state.unitEconomics.teamPeriods[teamId];
+  if (!arr) return;
+  const idx = arr.indexOf(ym);
+  if (idx !== -1) {
+    arr.splice(idx, 1);
+    saveUnitEconomicsToStorage();
+    renderUnitEconomicsGrid();
+    recalculate();
+  }
+}
+
+function toggleSection(e) {
+  const teamId = e.currentTarget.dataset.team;
+  const btn = e.currentTarget;
+  const body = document.getElementById(`ue-section-${teamId}`);
+  if (!body) return;
+  const expanded = body.hidden;
+  body.hidden = !expanded;
+  btn.setAttribute('aria-expanded', String(!expanded));
+  state.unitEconomics.sectionsExpanded[teamId] = !expanded;
+  saveUnitEconomicsToStorage();
+}
+
+function handleAddLineItemInline(e) {
+  const { team: teamId, month: ym } = e.target.dataset;
+  if (!teamId || !ym) return;
+  ensureMonthData(ym);
+  const list = state.unitEconomics.months[ym][teamId].lineItems;
   const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'li-' + Date.now() + '-' + Math.random().toString(36).slice(2);
   list.push({ id, label: '', amount: 0 });
   saveUnitEconomicsToStorage();
-  if (lineItemsModalContext && lineItemsModalContext.teamId === teamId && lineItemsModalContext.month === month) {
-    refreshLineItemsModalList();
-  } else {
-    renderUnitEconomicsGrid();
-  }
+  renderUnitEconomicsGrid();
   recalculate();
-  const firstNew = document.querySelector(`.line-item-row[data-line-id="${id}"] .line-item-label`);
+  const firstNew = document.querySelector(`.ue-inline-line-items[data-team="${teamId}"][data-month="${ym}"] .line-item-row[data-line-id="${id}"] .line-item-label`);
   if (firstNew) firstNew.focus();
 }
 
-function handleLineItemChange(e) {
-  const { team: teamId, lineId } = e.target.dataset;
-  const month = state.unitEconomics.currentMonth;
-  const list = state.unitEconomics.months[month][teamId].lineItems;
+function handleLineItemChangeInline(e) {
+  const { team: teamId, month: ym, lineId } = e.target.dataset;
+  if (!teamId || !ym) return;
+  const list = state.unitEconomics.months[ym][teamId].lineItems;
   const item = list.find((x) => x.id === lineId);
   if (!item) return;
   if (e.target.classList.contains('line-item-label')) {
@@ -467,22 +626,23 @@ function handleLineItemChange(e) {
     item.amount = parseNumericInput(e.target.value);
   }
   saveUnitEconomicsToStorage();
+  const row = e.target.closest('tr.ue-detail-row');
+  if (row) {
+    const sumEl = row.closest('.ue-team-section').querySelector(`tr.ue-data-row[data-ym="${ym}"] .ue-other-sum`);
+    if (sumEl) sumEl.textContent = formatCurrency(getLineItemsTotal(teamId, ym));
+  }
   recalculate();
 }
 
-function handleRemoveLineItem(e) {
-  const { team: teamId, lineId } = e.target.dataset;
-  const month = state.unitEconomics.currentMonth;
-  const list = state.unitEconomics.months[month][teamId].lineItems;
+function handleRemoveLineItemInline(e) {
+  const { team: teamId, month: ym, lineId } = e.target.dataset;
+  if (!teamId || !ym) return;
+  const list = state.unitEconomics.months[ym][teamId].lineItems;
   const idx = list.findIndex((x) => x.id === lineId);
   if (idx !== -1) {
     list.splice(idx, 1);
     saveUnitEconomicsToStorage();
-    if (lineItemsModalContext && lineItemsModalContext.teamId === teamId && lineItemsModalContext.month === month) {
-      refreshLineItemsModalList();
-    } else {
-      renderUnitEconomicsGrid();
-    }
+    renderUnitEconomicsGrid();
     recalculate();
   }
 }
@@ -504,123 +664,15 @@ function handleGridInput(e) {
   ensureMonthData(month);
   state.unitEconomics.months[month][team][field] = parseNumericInput(e.target.value);
   saveUnitEconomicsToStorage();
-  const row = e.target.closest('tr');
+  const row = e.target.closest('tr.ue-data-row');
   if (row) {
     const data = getMonthDataFor(team, month);
-    const salary = (data.headcount || 0) * (data.avgSalary || 0);
-    const salaryCell = row.querySelector('.ue-salary-cell');
-    if (salaryCell) salaryCell.textContent = formatCurrency(salary);
+    const totalSalary = Number(data.totalSalary) || 0;
+    const hc = Number(data.headcount) || 0;
+    const avgCell = row.querySelector('.ue-avg-cell');
+    if (avgCell) avgCell.textContent = hc > 0 ? formatCurrency(totalSalary / hc) : '—';
   }
   recalculate();
-}
-
-function openLineItemsModal(e) {
-  const { team: teamId, month } = e.target.dataset;
-  if (!teamId || !month) return;
-  openLineItemsModalFor(teamId, month);
-}
-
-let lineItemsModalContext = null;
-
-function renderLineItemsListForMonth(teamId, ym) {
-  const items = getMonthDataFor(teamId, ym).lineItems || [];
-  if (items.length === 0) {
-    return '';
-  }
-  return items.map((item) => {
-    const label = typeof item.label === 'string' ? item.label.replace(/"/g, '&quot;') : '';
-    const amount = Number(item.amount) || 0;
-    return `<li class="line-item-row" data-team="${teamId}" data-month="${ym}" data-line-id="${item.id}">
-      <input type="text" class="line-item-label" value="${label}" placeholder="Label" data-team="${teamId}" data-month="${ym}" data-line-id="${item.id}">
-      <input type="number" class="line-item-amount" value="${amount}" min="0" step="0.01" placeholder="0" data-team="${teamId}" data-month="${ym}" data-line-id="${item.id}">
-      <button type="button" class="btn btn-small btn-compact btn-delete line-item-remove" data-team="${teamId}" data-month="${ym}" data-line-id="${item.id}" aria-label="Remove">Remove</button>
-    </li>`;
-  }).join('');
-}
-
-function refreshLineItemsModalList() {
-  if (!lineItemsModalContext) return;
-  const listEl = document.getElementById('lineItemsModalList');
-  if (!listEl) return;
-  listEl.innerHTML = renderLineItemsListForMonth(lineItemsModalContext.teamId, lineItemsModalContext.month);
-  listEl.querySelectorAll('.line-item-label, .line-item-amount').forEach((input) => {
-    input.removeEventListener('change', handleLineItemChangeInModal);
-    input.addEventListener('change', handleLineItemChangeInModal);
-  });
-  listEl.querySelectorAll('.line-item-remove').forEach((btn) => {
-    btn.removeEventListener('click', handleRemoveLineItemInModal);
-    btn.addEventListener('click', handleRemoveLineItemInModal);
-  });
-}
-
-function openLineItemsModalFor(teamId, month) {
-  ensureMonthData(month);
-  lineItemsModalContext = { teamId, month };
-  const team = TEAMS.find((t) => t.id === teamId);
-  const teamName = team ? team.name : teamId;
-  const [y, m] = month.split('-');
-  const monthLabel = MONTH_LABELS[parseInt(m, 10) - 1] || month;
-  const titleEl = document.getElementById('lineItemsModalTitle');
-  if (titleEl) titleEl.textContent = `Line items — ${teamName} — ${monthLabel} ${y}`;
-  refreshLineItemsModalList();
-  const modal = document.getElementById('lineItemsModal');
-  if (modal) modal.classList.remove('app-hidden');
-  const addBtn = document.getElementById('lineItemsModalAddBtn');
-  if (addBtn) {
-    addBtn.onclick = function () {
-      if (!lineItemsModalContext) return;
-      const { teamId: tid, month: ym } = lineItemsModalContext;
-      ensureMonthData(ym);
-      const list = state.unitEconomics.months[ym][tid].lineItems;
-      const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'li-' + Date.now() + '-' + Math.random().toString(36).slice(2);
-      list.push({ id, label: '', amount: 0 });
-      saveUnitEconomicsToStorage();
-      refreshLineItemsModalList();
-      const firstNew = document.querySelector(`#lineItemsModalList .line-item-row[data-line-id="${id}"] .line-item-label`);
-      if (firstNew) firstNew.focus();
-    };
-  }
-}
-
-function handleLineItemChangeInModal(e) {
-  const { team: teamId, month, lineId } = e.target.dataset;
-  if (!teamId || !month) return;
-  const list = state.unitEconomics.months[month][teamId].lineItems;
-  const item = list.find((x) => x.id === lineId);
-  if (!item) return;
-  if (e.target.classList.contains('line-item-label')) {
-    item.label = e.target.value.trim();
-  } else {
-    item.amount = parseNumericInput(e.target.value);
-  }
-  saveUnitEconomicsToStorage();
-}
-
-function handleRemoveLineItemInModal(e) {
-  const { team: teamId, month, lineId } = e.target.dataset;
-  if (!teamId || !month) return;
-  const list = state.unitEconomics.months[month][teamId].lineItems;
-  const idx = list.findIndex((x) => x.id === lineId);
-  if (idx !== -1) {
-    list.splice(idx, 1);
-    saveUnitEconomicsToStorage();
-    refreshLineItemsModalList();
-  }
-}
-
-function closeLineItemsModal() {
-  const ctx = lineItemsModalContext;
-  lineItemsModalContext = null;
-  const modal = document.getElementById('lineItemsModal');
-  if (modal) modal.classList.add('app-hidden');
-  if (ctx) {
-    const row = document.querySelector(`#unitEconomicsTeamsContainer [data-team="${ctx.teamId}"] tr[data-ym="${ctx.month}"]`);
-    if (row) {
-      const sumEl = row.querySelector('.ue-other-sum');
-      if (sumEl) sumEl.textContent = formatCurrency(getLineItemsTotal(ctx.teamId, ctx.month));
-    }
-    recalculate();
-  }
 }
 
 // ---- Recalculate Everything ----
@@ -716,7 +768,6 @@ function exportCSV() {
   const grandTotal = getYearGrandTotal();
   const totalProjects = getYearTotalProjects();
   const totalResponses = getYearTotalResponses();
-  const year = state.unitEconomics.currentYear;
 
   let csv = 'Team,Team Cost,% of Total,Projects,Cost per Project,Response Groups,Cost per Response Group\n';
 
@@ -738,7 +789,7 @@ function exportCSV() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `cost_unit_economics_${year}.csv`;
+  a.download = 'cost_unit_economics.csv';
   a.click();
   URL.revokeObjectURL(url);
 
@@ -751,9 +802,8 @@ function copySummary() {
   const totalResponses = getYearTotalResponses();
   const overallCostPerProject = totalProjects > 0 ? grandTotal / totalProjects : 0;
   const overallCostPerResponse = totalResponses > 0 ? grandTotal / totalResponses : 0;
-  const year = state.unitEconomics.currentYear;
 
-  let summary = `Cost Unit Economics Summary (Year ${year})\n`;
+  let summary = `Unit Economics Summary (All periods)\n`;
   summary += `===========================\n\n`;
   summary += `Total Cost: ${formatCurrency(grandTotal)}\n`;
   summary += `Total Projects: ${formatNumber(totalProjects)}\n`;
@@ -1587,39 +1637,10 @@ function initBillsOnce() {
 
 function initCalculator() {
   loadUnitEconomicsFromStorage();
-  const year = state.unitEconomics.currentYear;
-  ensureYearMonths(year);
-
-  const yearEl = document.getElementById('unitEconomicsYear');
-  if (yearEl) {
-    const currentYear = new Date().getFullYear();
-    yearEl.innerHTML = '';
-    for (let y = currentYear - 2; y <= currentYear + 2; y++) {
-      const opt = document.createElement('option');
-      opt.value = y;
-      opt.textContent = y;
-      yearEl.appendChild(opt);
-    }
-    yearEl.value = String(year);
-    yearEl.addEventListener('change', function () {
-      state.unitEconomics.currentYear = parseInt(this.value, 10);
-      ensureYearMonths(state.unitEconomics.currentYear);
-      renderUnitEconomicsGrid();
-      recalculate();
-      saveUnitEconomicsToStorage();
-    });
-  }
-
   renderUnitEconomicsGrid();
   recalculate();
-
   document.getElementById('exportCsv').addEventListener('click', exportCSV);
   document.getElementById('copyClipboard').addEventListener('click', copySummary);
-
-  const lineItemsCloseBtn = document.getElementById('lineItemsModalCloseBtn');
-  if (lineItemsCloseBtn) lineItemsCloseBtn.addEventListener('click', closeLineItemsModal);
-  const lineItemsBackdrop = document.querySelector('.line-items-modal-backdrop');
-  if (lineItemsBackdrop) lineItemsBackdrop.addEventListener('click', closeLineItemsModal);
 }
 
 document.addEventListener('DOMContentLoaded', authInit);

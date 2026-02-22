@@ -820,6 +820,115 @@ h2 {
   font-family: var(--font);
 }
 
+.year-selector-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.year-selector-wrap label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.year-selector-wrap select {
+  padding: 0.4rem 0.6rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-family: var(--font);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.ue-team-section {
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.ue-team-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  color: var(--color-text);
+}
+
+.ue-month-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.ue-month-table th,
+.ue-month-table td {
+  padding: 0.4rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ue-month-table th {
+  font-weight: 600;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.ue-month-table tbody tr:nth-child(even) {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.ue-month-table tbody tr:hover {
+  background: rgba(109, 54, 255, 0.04);
+}
+
+.ue-month-table .ue-month-label {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.ue-month-table input[type="number"] {
+  width: 100%;
+  min-width: 4rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-family: var(--font);
+}
+
+.ue-month-table input[type="number"]:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.ue-salary-cell {
+  white-space: nowrap;
+  color: var(--color-text-muted);
+}
+
+.ue-other-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ue-other-cell .ue-other-sum {
+  font-weight: 500;
+}
+
+.ue-other-cell .ue-edit-other {
+  flex-shrink: 0;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .line-items-block {
   margin-top: 1rem;
   padding-top: 0.75rem;

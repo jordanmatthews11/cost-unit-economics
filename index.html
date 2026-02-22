@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="favicon.png">
   <title>Ops Finance Hub</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -54,17 +55,17 @@
       </div>
     </section>
 
-    <!-- Team Cost Inputs -->
+    <!-- Team Cost Inputs (monthly grid by year) -->
     <section class="teams-section">
       <div class="teams-section-header">
         <h2>Team Costs</h2>
-        <div class="month-selector-wrap">
-          <label for="unitEconomicsMonth">Month</label>
-          <input type="month" id="unitEconomicsMonth" aria-label="Select month for unit economics">
+        <div class="year-selector-wrap">
+          <label for="unitEconomicsYear">Year</label>
+          <select id="unitEconomicsYear" aria-label="Select year for unit economics"></select>
         </div>
       </div>
-      <div class="teams-grid" id="teamsGrid">
-        <!-- Team cards are rendered by app.js -->
+      <div id="unitEconomicsTeamsContainer">
+        <!-- Per-team monthly tables rendered by app.js -->
       </div>
     </section>
 
@@ -104,6 +105,24 @@
       <button class="btn btn-compact btn-export" id="exportCsv">Export as CSV</button>
       <button class="btn btn-compact btn-copy" id="copyClipboard">Copy Summary</button>
     </section>
+
+    <!-- Line items modal (team + month) -->
+    <div id="lineItemsModal" class="modal app-hidden" aria-modal="true" aria-labelledby="lineItemsModalTitle">
+      <div class="modal-backdrop line-items-modal-backdrop"></div>
+      <div class="modal-content">
+        <h2 id="lineItemsModalTitle" class="modal-title">Line items</h2>
+        <div class="line-items-modal-body">
+          <div class="line-items-header">
+            <span class="line-items-title">Line expenses</span>
+            <button type="button" class="btn btn-small btn-compact btn-secondary" id="lineItemsModalAddBtn">Add line item</button>
+          </div>
+          <ul class="line-items-list" id="lineItemsModalList"></ul>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-primary" id="lineItemsModalCloseBtn">Done</button>
+        </div>
+      </div>
+    </div>
   </main>
 
   <main id="panelBills" class="tab-panel app-hidden" role="tabpanel" aria-hidden="true">

@@ -185,6 +185,7 @@ const COST_FIELDS = [
 ];
 
 const UNIT_ECONOMICS_STORAGE_KEY = 'cost_unit_economics_monthly';
+const MONTH_LABELS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 function getCurrentMonthString() {
   const d = new Date();
@@ -198,6 +199,7 @@ function getCurrentMonthString() {
 const state = {
   unitEconomics: {
     currentMonth: getCurrentMonthString(),
+    currentYear: new Date().getFullYear(),
     months: {},
   },
 };
@@ -230,16 +232,32 @@ function getMonthData(teamId) {
   return state.unitEconomics.months[month][teamId] || getDefaultTeamMonthData();
 }
 
+function getYearMonthKeys(year) {
+  const y = year || state.unitEconomics.currentYear;
+  return Array.from({ length: 12 }, (_, i) => `${y}-${String(i + 1).padStart(2, '0')}`);
+}
+
+function ensureYearMonths(year) {
+  getYearMonthKeys(year).forEach((ym) => ensureMonthData(ym));
+}
+
+function getMonthDataFor(teamId, ym) {
+  ensureMonthData(ym);
+  return state.unitEconomics.months[ym][teamId] || getDefaultTeamMonthData();
+}
+
 function loadUnitEconomicsFromStorage() {
   try {
     const raw = localStorage.getItem(UNIT_ECONOMICS_STORAGE_KEY);
     if (!raw) return;
     const parsed = JSON.parse(raw);
     if (parsed.currentMonth) state.unitEconomics.currentMonth = parsed.currentMonth;
+    if (parsed.currentYear != null) state.unitEconomics.currentYear = Number(parsed.currentYear) || new Date().getFullYear();
     if (parsed.months && typeof parsed.months === 'object') {
       state.unitEconomics.months = parsed.months;
       Object.keys(state.unitEconomics.months).forEach((m) => ensureMonthData(m));
     }
+    ensureYearMonths(state.unitEconomics.currentYear);
   } catch (_) {}
 }
 
@@ -284,6 +302,13 @@ function getTeamTotal(teamId) {
   return salaryCost + lineTotal;
 }
 
+function getTeamTotalForMonth(teamId, ym) {
+  const t = getMonthDataFor(teamId, ym);
+  const salaryCost = (t.headcount || 0) * (t.avgSalary || 0);
+  const lineTotal = (t.lineItems || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+  return salaryCost + lineTotal;
+}
+
 function getGrandTotal() {
   return TEAMS.reduce((sum, team) => sum + getTeamTotal(team.id), 0);
 }
@@ -294,6 +319,33 @@ function getTotalProjects() {
 
 function getTotalResponses() {
   return TEAMS.reduce((sum, team) => sum + (getMonthData(team.id).numResponses || 0), 0);
+}
+
+function getTeamYearTotal(teamId) {
+  const year = state.unitEconomics.currentYear;
+  return getYearMonthKeys(year).reduce((sum, ym) => sum + getTeamTotalForMonth(teamId, ym), 0);
+}
+
+function getTeamYearProjects(teamId) {
+  const year = state.unitEconomics.currentYear;
+  return getYearMonthKeys(year).reduce((sum, ym) => sum + (getMonthDataFor(teamId, ym).numProjects || 0), 0);
+}
+
+function getTeamYearResponses(teamId) {
+  const year = state.unitEconomics.currentYear;
+  return getYearMonthKeys(year).reduce((sum, ym) => sum + (getMonthDataFor(teamId, ym).numResponses || 0), 0);
+}
+
+function getYearGrandTotal() {
+  return TEAMS.reduce((sum, team) => sum + getTeamYearTotal(team.id), 0);
+}
+
+function getYearTotalProjects() {
+  return TEAMS.reduce((sum, team) => sum + getTeamYearProjects(team.id), 0);
+}
+
+function getYearTotalResponses() {
+  return TEAMS.reduce((sum, team) => sum + getTeamYearResponses(team.id), 0);
 }
 
 // ---- Render Team Cards ----
@@ -315,102 +367,73 @@ function renderLineItemsList(teamId) {
   return '<ul class="line-items-list" data-team="' + teamId + '">' + list + '</ul>';
 }
 
-function renderTeamCards() {
-  const grid = document.getElementById('teamsGrid');
-  if (!grid) return;
-  grid.innerHTML = '';
+function getLineItemsTotal(teamId, ym) {
+  const t = getMonthDataFor(teamId, ym);
+  return (t.lineItems || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+}
+
+function renderUnitEconomicsGrid() {
+  const container = document.getElementById('unitEconomicsTeamsContainer');
+  if (!container) return;
+  const year = state.unitEconomics.currentYear;
+  ensureYearMonths(year);
+  const monthKeys = getYearMonthKeys(year);
+  container.innerHTML = '';
 
   TEAMS.forEach((team) => {
-    const data = getMonthData(team.id);
-    const card = document.createElement('div');
-    card.className = 'team-card';
-    card.setAttribute('data-team', team.id);
-
-    let volumeHTML = '';
-    VOLUME_FIELDS.forEach((field) => {
-      const val = data[field.key];
-      const valueAttr = val !== undefined && val !== '' ? ` value="${Number(val) || ''}"` : '';
-      volumeHTML += `
-        <div class="input-row">
-          <label for="${team.id}_${field.key}">${field.label}</label>
-          <input
-            type="number"
-            id="${team.id}_${field.key}"
-            data-team="${team.id}"
-            data-field="${field.key}"
-            min="0"
-            step="${field.step}"
-            placeholder="${field.placeholder}"
-            ${valueAttr}
-          >
-        </div>`;
+    const section = document.createElement('div');
+    section.className = 'ue-team-section';
+    section.setAttribute('data-team', team.id);
+    let rows = '';
+    monthKeys.forEach((ym, idx) => {
+      const data = getMonthDataFor(team.id, ym);
+      const salary = (data.headcount || 0) * (data.avgSalary || 0);
+      const other = getLineItemsTotal(team.id, ym);
+      const monthLabel = MONTH_LABELS[idx] || ym;
+      const projVal = data.numProjects !== undefined && data.numProjects !== '' ? Number(data.numProjects) : '';
+      const respVal = data.numResponses !== undefined && data.numResponses !== '' ? Number(data.numResponses) : '';
+      const hcVal = data.headcount !== undefined && data.headcount !== '' ? Number(data.headcount) : '';
+      const salVal = data.avgSalary !== undefined && data.avgSalary !== '' ? Number(data.avgSalary) : '';
+      rows += `
+        <tr data-ym="${ym}">
+          <td class="ue-month-label">${monthLabel}</td>
+          <td><input type="number" data-team="${team.id}" data-month="${ym}" data-field="numProjects" min="0" step="1" placeholder="0" value="${projVal}"></td>
+          <td><input type="number" data-team="${team.id}" data-month="${ym}" data-field="numResponses" min="0" step="1" placeholder="0" value="${respVal}"></td>
+          <td><input type="number" data-team="${team.id}" data-month="${ym}" data-field="headcount" min="0" step="1" placeholder="0" value="${hcVal}"></td>
+          <td><input type="number" data-team="${team.id}" data-month="${ym}" data-field="avgSalary" min="0" step="0.01" placeholder="0" value="${salVal}"></td>
+          <td class="ue-salary-cell">${formatCurrency(salary)}</td>
+          <td class="ue-other-cell">
+            <span class="ue-other-sum">${formatCurrency(other)}</span>
+            <button type="button" class="btn btn-row-action btn-edit ue-edit-other" data-team="${team.id}" data-month="${ym}" aria-label="Edit line items">Edit</button>
+          </td>
+        </tr>`;
     });
-
-    let costHTML = '';
-    COST_FIELDS.forEach((field) => {
-      const val = data[field.key];
-      const valueAttr = val !== undefined && val !== '' ? ` value="${Number(val) || ''}"` : '';
-      costHTML += `
-        <div class="input-row">
-          <label for="${team.id}_${field.key}">${field.label}</label>
-          <input
-            type="number"
-            id="${team.id}_${field.key}"
-            data-team="${team.id}"
-            data-field="${field.key}"
-            min="0"
-            step="${field.step}"
-            placeholder="${field.placeholder}"
-            ${valueAttr}
-          >
-        </div>`;
-    });
-
-    const lineItemsHTML = `
-      <div class="line-items-block">
-        <div class="line-items-header">
-          <span class="line-items-title">Line expenses</span>
-          <button type="button" class="btn btn-small btn-compact btn-secondary add-line-item-btn" data-team="${team.id}">Add line item</button>
-        </div>
-        ${renderLineItemsList(team.id)}
+    section.innerHTML = `
+      <h3 class="ue-team-title">${team.name}</h3>
+      <div class="table-wrapper">
+        <table class="ue-month-table">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Projects</th>
+              <th>Response Groups</th>
+              <th>Headcount</th>
+              <th>Avg Salary ($)</th>
+              <th>Salary</th>
+              <th>Other</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
       </div>`;
-
-    card.innerHTML = `
-      <h3>${team.name}</h3>
-      ${volumeHTML}
-      <div class="volume-divider"></div>
-      ${costHTML}
-      ${lineItemsHTML}
-      <div class="team-footer">
-        <div class="team-footer-row team-footer-total">
-          <span class="team-footer-label">Team Total</span>
-          <span class="team-footer-value" id="total_${team.id}">$0.00</span>
-        </div>
-        <div class="team-footer-row">
-          <span class="team-footer-label">Cost / Project</span>
-          <span class="team-footer-value" id="cpp_${team.id}">$0.00</span>
-        </div>
-        <div class="team-footer-row">
-          <span class="team-footer-label">Cost / Response Group</span>
-          <span class="team-footer-value" id="cpr_${team.id}">$0.00</span>
-        </div>
-      </div>
-    `;
-
-    grid.appendChild(card);
+    container.appendChild(section);
   });
 
-  grid.querySelectorAll('input[data-team][data-field]').forEach((input) => {
-    input.addEventListener('input', handleTeamInput);
+  container.querySelectorAll('input[data-team][data-month][data-field]').forEach((input) => {
+    input.addEventListener('input', handleGridInput);
   });
-  grid.querySelectorAll('.add-line-item-btn').forEach((btn) => {
-    btn.addEventListener('click', handleAddLineItem);
-  });
-  grid.querySelectorAll('.line-item-label, .line-item-amount').forEach((input) => {
-    input.addEventListener('change', handleLineItemChange);
-  });
-  grid.querySelectorAll('.line-item-remove').forEach((btn) => {
-    btn.addEventListener('click', handleRemoveLineItem);
+  container.querySelectorAll('.ue-edit-other').forEach((btn) => {
+    btn.addEventListener('click', openLineItemsModal);
   });
 }
 
@@ -422,7 +445,11 @@ function handleAddLineItem(e) {
   const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'li-' + Date.now() + '-' + Math.random().toString(36).slice(2);
   list.push({ id, label: '', amount: 0 });
   saveUnitEconomicsToStorage();
-  renderTeamCards();
+  if (lineItemsModalContext && lineItemsModalContext.teamId === teamId && lineItemsModalContext.month === month) {
+    refreshLineItemsModalList();
+  } else {
+    renderUnitEconomicsGrid();
+  }
   recalculate();
   const firstNew = document.querySelector(`.line-item-row[data-line-id="${id}"] .line-item-label`);
   if (firstNew) firstNew.focus();
@@ -451,7 +478,11 @@ function handleRemoveLineItem(e) {
   if (idx !== -1) {
     list.splice(idx, 1);
     saveUnitEconomicsToStorage();
-    renderTeamCards();
+    if (lineItemsModalContext && lineItemsModalContext.teamId === teamId && lineItemsModalContext.month === month) {
+      refreshLineItemsModalList();
+    } else {
+      renderUnitEconomicsGrid();
+    }
     recalculate();
   }
 }
@@ -460,46 +491,152 @@ function handleRemoveLineItem(e) {
 
 function handleTeamInput(e) {
   const { team, field } = e.target.dataset;
-  const month = state.unitEconomics.currentMonth;
+  const month = e.target.dataset.month || state.unitEconomics.currentMonth;
   ensureMonthData(month);
   state.unitEconomics.months[month][team][field] = parseNumericInput(e.target.value);
   saveUnitEconomicsToStorage();
   recalculate();
 }
 
+function handleGridInput(e) {
+  const { team, month, field } = e.target.dataset;
+  if (!team || !month || !field) return;
+  ensureMonthData(month);
+  state.unitEconomics.months[month][team][field] = parseNumericInput(e.target.value);
+  saveUnitEconomicsToStorage();
+  const row = e.target.closest('tr');
+  if (row) {
+    const data = getMonthDataFor(team, month);
+    const salary = (data.headcount || 0) * (data.avgSalary || 0);
+    const salaryCell = row.querySelector('.ue-salary-cell');
+    if (salaryCell) salaryCell.textContent = formatCurrency(salary);
+  }
+  recalculate();
+}
+
+function openLineItemsModal(e) {
+  const { team: teamId, month } = e.target.dataset;
+  if (!teamId || !month) return;
+  openLineItemsModalFor(teamId, month);
+}
+
+let lineItemsModalContext = null;
+
+function renderLineItemsListForMonth(teamId, ym) {
+  const items = getMonthDataFor(teamId, ym).lineItems || [];
+  if (items.length === 0) {
+    return '';
+  }
+  return items.map((item) => {
+    const label = typeof item.label === 'string' ? item.label.replace(/"/g, '&quot;') : '';
+    const amount = Number(item.amount) || 0;
+    return `<li class="line-item-row" data-team="${teamId}" data-month="${ym}" data-line-id="${item.id}">
+      <input type="text" class="line-item-label" value="${label}" placeholder="Label" data-team="${teamId}" data-month="${ym}" data-line-id="${item.id}">
+      <input type="number" class="line-item-amount" value="${amount}" min="0" step="0.01" placeholder="0" data-team="${teamId}" data-month="${ym}" data-line-id="${item.id}">
+      <button type="button" class="btn btn-small btn-compact btn-delete line-item-remove" data-team="${teamId}" data-month="${ym}" data-line-id="${item.id}" aria-label="Remove">Remove</button>
+    </li>`;
+  }).join('');
+}
+
+function refreshLineItemsModalList() {
+  if (!lineItemsModalContext) return;
+  const listEl = document.getElementById('lineItemsModalList');
+  if (!listEl) return;
+  listEl.innerHTML = renderLineItemsListForMonth(lineItemsModalContext.teamId, lineItemsModalContext.month);
+  listEl.querySelectorAll('.line-item-label, .line-item-amount').forEach((input) => {
+    input.removeEventListener('change', handleLineItemChangeInModal);
+    input.addEventListener('change', handleLineItemChangeInModal);
+  });
+  listEl.querySelectorAll('.line-item-remove').forEach((btn) => {
+    btn.removeEventListener('click', handleRemoveLineItemInModal);
+    btn.addEventListener('click', handleRemoveLineItemInModal);
+  });
+}
+
+function openLineItemsModalFor(teamId, month) {
+  ensureMonthData(month);
+  lineItemsModalContext = { teamId, month };
+  const team = TEAMS.find((t) => t.id === teamId);
+  const teamName = team ? team.name : teamId;
+  const [y, m] = month.split('-');
+  const monthLabel = MONTH_LABELS[parseInt(m, 10) - 1] || month;
+  const titleEl = document.getElementById('lineItemsModalTitle');
+  if (titleEl) titleEl.textContent = `Line items — ${teamName} — ${monthLabel} ${y}`;
+  refreshLineItemsModalList();
+  const modal = document.getElementById('lineItemsModal');
+  if (modal) modal.classList.remove('app-hidden');
+  const addBtn = document.getElementById('lineItemsModalAddBtn');
+  if (addBtn) {
+    addBtn.onclick = function () {
+      if (!lineItemsModalContext) return;
+      const { teamId: tid, month: ym } = lineItemsModalContext;
+      ensureMonthData(ym);
+      const list = state.unitEconomics.months[ym][tid].lineItems;
+      const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'li-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+      list.push({ id, label: '', amount: 0 });
+      saveUnitEconomicsToStorage();
+      refreshLineItemsModalList();
+      const firstNew = document.querySelector(`#lineItemsModalList .line-item-row[data-line-id="${id}"] .line-item-label`);
+      if (firstNew) firstNew.focus();
+    };
+  }
+}
+
+function handleLineItemChangeInModal(e) {
+  const { team: teamId, month, lineId } = e.target.dataset;
+  if (!teamId || !month) return;
+  const list = state.unitEconomics.months[month][teamId].lineItems;
+  const item = list.find((x) => x.id === lineId);
+  if (!item) return;
+  if (e.target.classList.contains('line-item-label')) {
+    item.label = e.target.value.trim();
+  } else {
+    item.amount = parseNumericInput(e.target.value);
+  }
+  saveUnitEconomicsToStorage();
+}
+
+function handleRemoveLineItemInModal(e) {
+  const { team: teamId, month, lineId } = e.target.dataset;
+  if (!teamId || !month) return;
+  const list = state.unitEconomics.months[month][teamId].lineItems;
+  const idx = list.findIndex((x) => x.id === lineId);
+  if (idx !== -1) {
+    list.splice(idx, 1);
+    saveUnitEconomicsToStorage();
+    refreshLineItemsModalList();
+  }
+}
+
+function closeLineItemsModal() {
+  const ctx = lineItemsModalContext;
+  lineItemsModalContext = null;
+  const modal = document.getElementById('lineItemsModal');
+  if (modal) modal.classList.add('app-hidden');
+  if (ctx) {
+    const row = document.querySelector(`#unitEconomicsTeamsContainer [data-team="${ctx.teamId}"] tr[data-ym="${ctx.month}"]`);
+    if (row) {
+      const sumEl = row.querySelector('.ue-other-sum');
+      if (sumEl) sumEl.textContent = formatCurrency(getLineItemsTotal(ctx.teamId, ctx.month));
+    }
+    recalculate();
+  }
+}
+
 // ---- Recalculate Everything ----
 
 function recalculate() {
-  const grandTotal = getGrandTotal();
-  const totalProjects = getTotalProjects();
-  const totalResponses = getTotalResponses();
+  const grandTotal = getYearGrandTotal();
+  const totalProjects = getYearTotalProjects();
+  const totalResponses = getYearTotalResponses();
   const overallCostPerProject = totalProjects > 0 ? grandTotal / totalProjects : 0;
   const overallCostPerResponse = totalResponses > 0 ? grandTotal / totalResponses : 0;
 
-  // Update top-level results
   document.getElementById('totalCost').textContent = formatCurrency(grandTotal);
   document.getElementById('costPerProject').textContent = formatCurrency(overallCostPerProject);
   document.getElementById('costPerResponse').textContent = formatCurrency(overallCostPerResponse);
 
-  // Update each team card footer
-  TEAMS.forEach((team) => {
-    const teamCost = getTeamTotal(team.id);
-    const teamProjects = getMonthData(team.id).numProjects || 0;
-    const teamResponses = getMonthData(team.id).numResponses || 0;
-
-    const totalEl = document.getElementById(`total_${team.id}`);
-    const cppEl = document.getElementById(`cpp_${team.id}`);
-    const cprEl = document.getElementById(`cpr_${team.id}`);
-
-    if (totalEl) totalEl.textContent = formatCurrency(teamCost);
-    if (cppEl) cppEl.textContent = teamProjects > 0 ? formatCurrency(teamCost / teamProjects) : '$0.00';
-    if (cprEl) cprEl.textContent = teamResponses > 0 ? formatCurrency(teamCost / teamResponses) : '$0.00';
-  });
-
-  // Update breakdown table
   renderBreakdownTable(grandTotal, totalProjects, totalResponses);
-
-  // Update chart
   renderChart(grandTotal);
 }
 
@@ -510,9 +647,9 @@ function renderBreakdownTable(grandTotal, totalProjects, totalResponses) {
   tbody.innerHTML = '';
 
   TEAMS.forEach((team) => {
-    const teamCost = getTeamTotal(team.id);
-    const teamProjects = getMonthData(team.id).numProjects || 0;
-    const teamResponses = getMonthData(team.id).numResponses || 0;
+    const teamCost = getTeamYearTotal(team.id);
+    const teamProjects = getTeamYearProjects(team.id);
+    const teamResponses = getTeamYearResponses(team.id);
     const pct = grandTotal > 0 ? teamCost / grandTotal : 0;
     const perProject = teamProjects > 0 ? teamCost / teamProjects : 0;
     const perResponse = teamResponses > 0 ? teamCost / teamResponses : 0;
@@ -553,10 +690,10 @@ function renderChart(grandTotal) {
   const container = document.getElementById('chartContainer');
   container.innerHTML = '';
 
-  const maxCost = Math.max(...TEAMS.map((t) => getTeamTotal(t.id)), 1);
+  const maxCost = Math.max(...TEAMS.map((t) => getTeamYearTotal(t.id)), 1);
 
   TEAMS.forEach((team) => {
-    const teamCost = getTeamTotal(team.id);
+    const teamCost = getTeamYearTotal(team.id);
     const widthPct = maxCost > 0 ? (teamCost / maxCost) * 100 : 0;
 
     const row = document.createElement('div');
@@ -576,16 +713,17 @@ function renderChart(grandTotal) {
 // ---- Export Functions ----
 
 function exportCSV() {
-  const grandTotal = getGrandTotal();
-  const totalProjects = getTotalProjects();
-  const totalResponses = getTotalResponses();
+  const grandTotal = getYearGrandTotal();
+  const totalProjects = getYearTotalProjects();
+  const totalResponses = getYearTotalResponses();
+  const year = state.unitEconomics.currentYear;
 
   let csv = 'Team,Team Cost,% of Total,Projects,Cost per Project,Response Groups,Cost per Response Group\n';
 
   TEAMS.forEach((team) => {
-    const teamCost = getTeamTotal(team.id);
-    const teamProjects = getMonthData(team.id).numProjects || 0;
-    const teamResponses = getMonthData(team.id).numResponses || 0;
+    const teamCost = getTeamYearTotal(team.id);
+    const teamProjects = getTeamYearProjects(team.id);
+    const teamResponses = getTeamYearResponses(team.id);
     const pct = grandTotal > 0 ? ((teamCost / grandTotal) * 100).toFixed(1) + '%' : '0.0%';
     const perProject = teamProjects > 0 ? (teamCost / teamProjects).toFixed(2) : '0.00';
     const perResponse = teamResponses > 0 ? (teamCost / teamResponses).toFixed(2) : '0.00';
@@ -600,7 +738,7 @@ function exportCSV() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `cost_unit_economics_${state.unitEconomics.currentMonth || getCurrentMonthString()}.csv`;
+  a.download = `cost_unit_economics_${year}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 
@@ -608,14 +746,14 @@ function exportCSV() {
 }
 
 function copySummary() {
-  const grandTotal = getGrandTotal();
-  const totalProjects = getTotalProjects();
-  const totalResponses = getTotalResponses();
+  const grandTotal = getYearGrandTotal();
+  const totalProjects = getYearTotalProjects();
+  const totalResponses = getYearTotalResponses();
   const overallCostPerProject = totalProjects > 0 ? grandTotal / totalProjects : 0;
   const overallCostPerResponse = totalResponses > 0 ? grandTotal / totalResponses : 0;
+  const year = state.unitEconomics.currentYear;
 
-  const monthLabel = state.unitEconomics.currentMonth || getCurrentMonthString();
-  let summary = `Cost Unit Economics Summary (${monthLabel})\n`;
+  let summary = `Cost Unit Economics Summary (Year ${year})\n`;
   summary += `===========================\n\n`;
   summary += `Total Cost: ${formatCurrency(grandTotal)}\n`;
   summary += `Total Projects: ${formatNumber(totalProjects)}\n`;
@@ -626,9 +764,9 @@ function copySummary() {
   summary += `-------------------\n`;
 
   TEAMS.forEach((team) => {
-    const teamCost = getTeamTotal(team.id);
-    const teamProjects = getMonthData(team.id).numProjects || 0;
-    const teamResponses = getMonthData(team.id).numResponses || 0;
+    const teamCost = getTeamYearTotal(team.id);
+    const teamProjects = getTeamYearProjects(team.id);
+    const teamResponses = getTeamYearResponses(team.id);
     const pct = grandTotal > 0 ? formatPercent(teamCost / grandTotal) : '0.0%';
     const perProject = teamProjects > 0 ? formatCurrency(teamCost / teamProjects) : '$0.00';
     const perResponse = teamResponses > 0 ? formatCurrency(teamCost / teamResponses) : '$0.00';
@@ -1449,26 +1587,39 @@ function initBillsOnce() {
 
 function initCalculator() {
   loadUnitEconomicsFromStorage();
-  ensureMonthData(state.unitEconomics.currentMonth);
+  const year = state.unitEconomics.currentYear;
+  ensureYearMonths(year);
 
-  const monthEl = document.getElementById('unitEconomicsMonth');
-  if (monthEl) {
-    monthEl.value = state.unitEconomics.currentMonth;
-    monthEl.addEventListener('change', function () {
-      state.unitEconomics.currentMonth = this.value || getCurrentMonthString();
-      ensureMonthData(state.unitEconomics.currentMonth);
-      renderTeamCards();
+  const yearEl = document.getElementById('unitEconomicsYear');
+  if (yearEl) {
+    const currentYear = new Date().getFullYear();
+    yearEl.innerHTML = '';
+    for (let y = currentYear - 2; y <= currentYear + 2; y++) {
+      const opt = document.createElement('option');
+      opt.value = y;
+      opt.textContent = y;
+      yearEl.appendChild(opt);
+    }
+    yearEl.value = String(year);
+    yearEl.addEventListener('change', function () {
+      state.unitEconomics.currentYear = parseInt(this.value, 10);
+      ensureYearMonths(state.unitEconomics.currentYear);
+      renderUnitEconomicsGrid();
       recalculate();
       saveUnitEconomicsToStorage();
     });
   }
 
-  renderTeamCards();
+  renderUnitEconomicsGrid();
   recalculate();
 
-  // Export buttons
   document.getElementById('exportCsv').addEventListener('click', exportCSV);
   document.getElementById('copyClipboard').addEventListener('click', copySummary);
+
+  const lineItemsCloseBtn = document.getElementById('lineItemsModalCloseBtn');
+  if (lineItemsCloseBtn) lineItemsCloseBtn.addEventListener('click', closeLineItemsModal);
+  const lineItemsBackdrop = document.querySelector('.line-items-modal-backdrop');
+  if (lineItemsBackdrop) lineItemsBackdrop.addEventListener('click', closeLineItemsModal);
 }
 
 document.addEventListener('DOMContentLoaded', authInit);

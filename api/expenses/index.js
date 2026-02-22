@@ -146,14 +146,19 @@ module.exports = async function handler(req, res) {
     try {
       const status = req.query.status || null;
       const category = req.query.category || null;
-      const year = req.query.year || null;
+      const vendor = req.query.vendor || null;
+      let period = req.query.period;
+      if (period == null) period = null;
+      else if (Array.isArray(period)) period = period.filter((p) => p != null && String(p).trim() !== '').map((p) => String(p).trim());
+      else period = [String(period).trim()].filter(Boolean);
+      if (period && period.length === 0) period = null;
+      let year = req.query.year || null;
       let month = req.query.month;
       if (month == null) month = null;
       else if (Array.isArray(month)) month = month.filter((m) => m != null && String(m).trim() !== '').map((m) => String(m).trim());
       else month = [String(month).trim()].filter(Boolean);
       if (month && month.length === 0) month = null;
-      const vendor = req.query.vendor || null;
-      const rows = await db.getExpensesByUserId(userId, status, category, year, month, vendor);
+      const rows = await db.getExpensesByUserId(userId, status, category, year, month, vendor, period);
       res.status(200).json(rows);
     } catch (err) {
       console.error('GET expenses error:', err);

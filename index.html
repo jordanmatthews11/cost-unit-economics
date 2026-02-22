@@ -127,16 +127,18 @@
             <option value="pending">Pending</option>
             <option value="paid">Paid</option>
           </select>
-          <select id="billsFilterYear" class="filter-select" aria-label="Filter by year">
-            <option value="">All years</option>
-          </select>
-          <div class="bills-filter-month-wrap" id="billsFilterMonthWrap">
-            <button type="button" class="bills-filter-month-btn filter-select" id="billsFilterMonthBtn" aria-label="Filter by month" aria-haspopup="listbox" aria-expanded="false">All months</button>
-            <div id="billsFilterMonthDropdown" class="bills-filter-month-dropdown app-hidden" role="listbox" aria-multiselectable="true">
-              <div class="bills-filter-month-actions">
-                <button type="button" class="bills-filter-month-clear" id="billsFilterMonthClear">Clear</button>
+          <div class="bills-filter-period-wrap" id="billsFilterPeriodWrap">
+            <button type="button" class="bills-filter-period-btn filter-select" id="billsFilterPeriodBtn" aria-label="Filter by month and year" aria-haspopup="dialog" aria-expanded="false">All periods</button>
+            <div id="billsFilterPeriodDropdown" class="bills-filter-period-dropdown app-hidden">
+              <div class="bills-filter-period-actions">
+                <label class="bills-filter-period-all"><input type="checkbox" id="billsFilterPeriodAll"> All</label>
               </div>
-              <div class="bills-filter-month-list" id="billsFilterMonthList"></div>
+              <input type="text" class="bills-filter-period-search" id="billsFilterPeriodSearch" placeholder="Search month, year" aria-label="Search periods">
+              <div class="bills-filter-period-list" id="billsFilterPeriodList"></div>
+              <div class="bills-filter-period-buttons">
+                <button type="button" class="btn btn-compact btn-secondary" id="billsFilterPeriodCancel">Cancel</button>
+                <button type="button" class="btn btn-compact btn-primary" id="billsFilterPeriodApply">Apply</button>
+              </div>
             </div>
           </div>
           <input type="text" id="billsFilterVendor" class="filter-input" placeholder="Vendor">

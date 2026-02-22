@@ -482,31 +482,28 @@ function renderUnitEconomicsGrid() {
       const hcVal = data.headcount !== undefined && data.headcount !== '' ? Number(data.headcount) : '';
       const salVal = data.totalSalary !== undefined && data.totalSalary !== '' ? Number(data.totalSalary) : '';
       rows += `
-        <tr data-ym="${ym}" class="ue-data-row">
-          <td class="ue-month-label">${periodLabel}</td>
-          <td><input type="number" data-team="${team.id}" data-month="${ym}" data-field="numProjects" min="0" step="1" placeholder="0" value="${projVal}"></td>
-          <td><input type="number" data-team="${team.id}" data-month="${ym}" data-field="numResponses" min="0" step="1" placeholder="0" value="${respVal}"></td>
-          <td><input type="number" data-team="${team.id}" data-month="${ym}" data-field="headcount" min="0" step="1" placeholder="0" value="${hcVal}"></td>
-          <td><input type="number" data-team="${team.id}" data-month="${ym}" data-field="totalSalary" min="0" step="0.01" placeholder="0" value="${salVal}"></td>
-          <td class="ue-avg-cell">${hc > 0 ? formatCurrency(avgPerPerson) : '—'}</td>
-          <td class="ue-other-cell">
-            <div class="ue-other-sum-wrap"><span class="ue-other-sum">${formatCurrency(other)}</span></div>
-          </td>
-          <td class="ue-actions-cell">
+        <div class="ue-grid-row ue-grid-month-row" data-ym="${ym}">
+          <div class="ue-grid-cell ue-month-label">${periodLabel}</div>
+          <div class="ue-grid-cell"><input type="number" data-team="${team.id}" data-month="${ym}" data-field="numProjects" min="0" step="1" placeholder="0" value="${projVal}"></div>
+          <div class="ue-grid-cell"><input type="number" data-team="${team.id}" data-month="${ym}" data-field="numResponses" min="0" step="1" placeholder="0" value="${respVal}"></div>
+          <div class="ue-grid-cell"><input type="number" data-team="${team.id}" data-month="${ym}" data-field="headcount" min="0" step="1" placeholder="0" value="${hcVal}"></div>
+          <div class="ue-grid-cell"><input type="number" data-team="${team.id}" data-month="${ym}" data-field="totalSalary" min="0" step="0.01" placeholder="0" value="${salVal}"></div>
+          <div class="ue-grid-cell ue-avg-cell">${hc > 0 ? formatCurrency(avgPerPerson) : '—'}</div>
+          <div class="ue-grid-cell ue-other-cell"><span class="ue-other-sum">${formatCurrency(other)}</span></div>
+          <div class="ue-grid-cell ue-actions-cell">
             <button type="button" class="btn btn-row-action btn-delete ue-remove-period" data-team="${team.id}" data-month="${ym}" aria-label="Remove period">Remove</button>
-          </td>
-        </tr>
-        <tr class="ue-detail-row" data-ym="${ym}" data-team="${team.id}">
-          <td colspan="8" class="ue-detail-cell">
+          </div>
+        </div>
+        <div class="ue-grid-row ue-grid-sub-row" data-ym="${ym}" data-team="${team.id}">
+          <div class="ue-grid-cell ue-detail-cell">
             <div class="ue-expenses-block">
               <span class="line-items-title">Other expenses</span>
               ${renderInlineLineItems(team.id, ym)}
             </div>
-          </td>
-        </tr>`;
+          </div>
+        </div>`;
     });
 
-    const colCount = 8;
     section.innerHTML = `
       <div class="ue-section-header" role="region" aria-label="${team.name}">
         <button type="button" class="ue-section-toggle" aria-expanded="${expanded}" aria-controls="${sectionId}" data-team="${team.id}">
@@ -517,37 +514,33 @@ function renderUnitEconomicsGrid() {
       </div>
       <div id="${sectionId}" class="ue-section-body" ${expanded ? '' : 'hidden'}>
         <div class="table-wrapper">
-          <table class="ue-month-table">
-            <thead>
-              <tr>
-                <th>Month</th>
-                <th>Projects</th>
-                <th>Response Groups</th>
-                <th>Headcount</th>
-                <th>Total Salary ($)</th>
-                <th>Avg per person</th>
-                <th>Other</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-            <tfoot>
-              <tr>
-                <td colspan="${colCount}" class="ue-add-period-cell">
-                  <div class="ue-add-period-wrap">
-                    <label for="ue-month-${team.id}">Add period</label>
-                    <select id="ue-month-${team.id}" class="ue-period-month" data-team="${team.id}" aria-label="Month">
-                      ${MONTH_LABELS.map((name, i) => `<option value="${String(i + 1).padStart(2, '0')}">${name}</option>`).join('')}
-                    </select>
-                    <select class="ue-period-year" data-team="${team.id}" aria-label="Year">
-                      ${yearOptions.map((y) => `<option value="${y}"${y === currentYear ? ' selected' : ''}>${y}</option>`).join('')}
-                    </select>
-                    <button type="button" class="btn btn-small btn-compact btn-secondary ue-add-period-btn" data-team="${team.id}">Add month</button>
-                  </div>
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+          <div class="ue-grid">
+            <div class="ue-grid-row ue-grid-header">
+              <div class="ue-grid-cell">Month</div>
+              <div class="ue-grid-cell">Projects</div>
+              <div class="ue-grid-cell">Response Groups</div>
+              <div class="ue-grid-cell">Headcount</div>
+              <div class="ue-grid-cell">Total Salary ($)</div>
+              <div class="ue-grid-cell">Avg per person</div>
+              <div class="ue-grid-cell">Other</div>
+              <div class="ue-grid-cell"></div>
+            </div>
+            ${rows}
+            <div class="ue-grid-row ue-grid-footer">
+              <div class="ue-grid-cell ue-add-period-cell">
+                <div class="ue-add-period-wrap">
+                  <label for="ue-month-${team.id}">Add period</label>
+                  <select id="ue-month-${team.id}" class="ue-period-month" data-team="${team.id}" aria-label="Month">
+                    ${MONTH_LABELS.map((name, i) => `<option value="${String(i + 1).padStart(2, '0')}">${name}</option>`).join('')}
+                  </select>
+                  <select class="ue-period-year" data-team="${team.id}" aria-label="Year">
+                    ${yearOptions.map((y) => `<option value="${y}"${y === currentYear ? ' selected' : ''}>${y}</option>`).join('')}
+                  </select>
+                  <button type="button" class="btn btn-small btn-compact btn-secondary ue-add-period-btn" data-team="${team.id}">Add month</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>`;
     container.appendChild(section);
@@ -648,9 +641,9 @@ function handleLineItemChangeInline(e) {
     item.amount = parseNumericInput(e.target.value);
   }
   saveUnitEconomicsToStorage();
-  const row = e.target.closest('tr.ue-detail-row');
+  const row = e.target.closest('.ue-grid-sub-row');
   if (row) {
-    const sumEl = row.closest('.ue-team-section').querySelector(`tr.ue-data-row[data-ym="${ym}"] .ue-other-sum`);
+    const sumEl = row.closest('.ue-team-section').querySelector(`.ue-grid-month-row[data-ym="${ym}"] .ue-other-sum`);
     if (sumEl) sumEl.textContent = formatCurrency(getLineItemsTotal(teamId, ym));
   }
   recalculate();
@@ -686,7 +679,7 @@ function handleGridInput(e) {
   ensureMonthData(month);
   state.unitEconomics.months[month][team][field] = parseNumericInput(e.target.value);
   saveUnitEconomicsToStorage();
-  const row = e.target.closest('tr.ue-data-row');
+  const row = e.target.closest('.ue-grid-month-row');
   if (row) {
     const data = getMonthDataFor(team, month);
     const totalSalary = Number(data.totalSalary) || 0;
@@ -919,19 +912,17 @@ async function showExpensesLoadErrorToast(res) {
   showToast(msg);
 }
 
+let billsSelectedPeriods = new Set();
+
 async function loadExpenses() {
   const status = document.getElementById('billsFilterStatus').value || '';
   const category = document.getElementById('billsFilterCategory').value.trim() || '';
-  const yearSel = document.getElementById('billsFilterYear');
-  let year = (yearSel && yearSel.value) || '';
-  if (!year) year = String(new Date().getFullYear());
-  const selectedMonths = getBillsSelectedMonths();
   const vendor = document.getElementById('billsFilterVendor').value.trim() || '';
   const params = new URLSearchParams();
   if (status) params.set('status', status);
   if (category) params.set('category', category);
-  if (year) params.set('year', year);
-  selectedMonths.forEach((m) => params.append('month', m));
+  const periods = Array.from(billsSelectedPeriods);
+  periods.forEach((ym) => params.append('period', ym));
   if (vendor) params.set('vendor', vendor);
   params.set('_', Date.now());
   const res = await apiFetch(`/api/expenses?${params}`);
@@ -939,42 +930,49 @@ async function loadExpenses() {
     await showExpensesLoadErrorToast(res);
     return;
   }
-  expensesList = await res.json();
-  populateBillsYearFilter();
+  let list = await res.json();
+  if (periods.length > 0) {
+    const set = new Set(periods);
+    list = list.filter((e) => set.has((e.date || '').slice(0, 7)));
+  }
+  expensesList = list;
   renderBillsTable();
   renderBillsMetrics(expensesList);
 }
 
 const BILLS_MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-function getBillsSelectedMonths() {
-  const list = document.getElementById('billsFilterMonthList');
-  if (!list) return [];
-  return Array.from(list.querySelectorAll('.bills-filter-month-cb:checked')).map((cb) => cb.value);
+function formatPeriodLabel(ym) {
+  if (!ym || ym.length < 7) return ym;
+  const y = ym.slice(0, 4);
+  const m = parseInt(ym.slice(5, 7), 10);
+  const monthName = BILLS_MONTH_LABELS[m - 1] || ym;
+  return `${monthName} ${y}`;
 }
 
-function updateBillsMonthFilterButtonLabel() {
-  const btn = document.getElementById('billsFilterMonthBtn');
-  if (!btn) return;
-  const months = getBillsSelectedMonths();
-  if (months.length === 0) btn.textContent = 'All months';
-  else if (months.length === 12) btn.textContent = 'All months';
-  else btn.textContent = months.map((m) => BILLS_MONTH_LABELS[parseInt(m, 10) - 1] || m).join(', ');
-}
-
-function populateBillsYearFilter() {
-  const sel = document.getElementById('billsFilterYear');
-  if (!sel) return;
+function getDefaultPeriodOptions() {
   const currentYear = new Date().getFullYear();
-  const existingOpts = Array.from(sel.querySelectorAll('option')).map((o) => o.value);
-  const yearsFromData = [...new Set(expensesList.map((e) => (e.date || '').slice(0, 4)).filter(Boolean))].sort((a, b) => b - a);
-  const yearSet = new Set(yearsFromData);
-  for (let y = currentYear + 2; y >= currentYear - 2; y--) yearSet.add(String(y));
-  const years = Array.from(yearSet).sort((a, b) => Number(b) - Number(a));
-  const keepAll = existingOpts.includes('');
-  if (keepAll && years.length === Array.from(sel.options).length - 1 && years.every((y, i) => sel.options[i + 1].value === y)) return;
-  sel.innerHTML = '<option value="">All years</option>' + years.map((y) => `<option value="${escapeAttr(y)}">${escapeHtml(y)}</option>`).join('');
-  if (sel.value === '') sel.value = String(currentYear);
+  const out = [];
+  for (let y = currentYear + 2; y >= currentYear - 2; y--) {
+    for (let m = 12; m >= 1; m--) {
+      out.push(`${y}-${String(m).padStart(2, '0')}`);
+    }
+  }
+  return out;
+}
+
+function getPeriodOptions() {
+  const fromData = [...new Set(expensesList.map((e) => (e.date || '').slice(0, 7)).filter(Boolean))];
+  const defaultOpts = getDefaultPeriodOptions();
+  const set = new Set([...fromData, ...defaultOpts]);
+  return Array.from(set).sort((a, b) => b.localeCompare(a));
+}
+
+function updateBillsPeriodFilterButtonLabel() {
+  const btn = document.getElementById('billsFilterPeriodBtn');
+  if (!btn) return;
+  if (billsSelectedPeriods.size === 0) btn.textContent = 'All periods';
+  else btn.textContent = Array.from(billsSelectedPeriods).sort((a, b) => b.localeCompare(a)).map(formatPeriodLabel).join(', ');
 }
 
 function renderBillsTable() {
@@ -1654,39 +1652,89 @@ async function importBillsFromCsv(file) {
   }
 }
 
-function initBillsMonthFilter() {
-  const listEl = document.getElementById('billsFilterMonthList');
-  const btn = document.getElementById('billsFilterMonthBtn');
-  const dropdown = document.getElementById('billsFilterMonthDropdown');
-  const clearBtn = document.getElementById('billsFilterMonthClear');
-  if (!listEl || !btn || !dropdown) return;
-  listEl.innerHTML = BILLS_MONTH_LABELS.map((label, i) => {
-    const value = String(i + 1);
-    return `<label class="bills-filter-month-option"><input type="checkbox" class="bills-filter-month-cb" value="${escapeAttr(value)}" aria-label="${escapeAttr(label)}">${escapeHtml(label)}</label>`;
+function renderBillsPeriodList(filterText) {
+  const listEl = document.getElementById('billsFilterPeriodList');
+  if (!listEl) return;
+  const options = getPeriodOptions();
+  const lower = (filterText || '').toLowerCase();
+  const filtered = lower ? options.filter((ym) => formatPeriodLabel(ym).toLowerCase().includes(lower)) : options;
+  listEl.innerHTML = filtered.map((ym) => {
+    const checked = billsSelectedPeriods.size === 0 || billsSelectedPeriods.has(ym);
+    return `<label class="bills-filter-period-option"><input type="checkbox" class="bills-filter-period-cb" value="${escapeAttr(ym)}" ${checked ? ' checked' : ''} aria-label="${escapeAttr(formatPeriodLabel(ym))}">${escapeHtml(formatPeriodLabel(ym))}</label>`;
   }).join('');
+}
+
+function initBillsPeriodFilter() {
+  const listEl = document.getElementById('billsFilterPeriodList');
+  const btn = document.getElementById('billsFilterPeriodBtn');
+  const dropdown = document.getElementById('billsFilterPeriodDropdown');
+  const allCb = document.getElementById('billsFilterPeriodAll');
+  const searchInput = document.getElementById('billsFilterPeriodSearch');
+  const applyBtn = document.getElementById('billsFilterPeriodApply');
+  const cancelBtn = document.getElementById('billsFilterPeriodCancel');
+  const wrap = document.getElementById('billsFilterPeriodWrap');
+  if (!listEl || !btn || !dropdown || !wrap) return;
+
+  renderBillsPeriodList('');
+
   btn.addEventListener('click', () => {
     const open = !dropdown.classList.contains('app-hidden');
+    if (open) {
+      renderBillsPeriodList(searchInput ? searchInput.value : '');
+      allCb.checked = billsSelectedPeriods.size === 0;
+    }
     dropdown.classList.toggle('app-hidden', open);
     btn.setAttribute('aria-expanded', String(!open));
   });
+
   document.addEventListener('click', (e) => {
-    const wrap = document.getElementById('billsFilterMonthWrap');
     if (wrap && !wrap.contains(e.target)) {
       dropdown.classList.add('app-hidden');
       btn.setAttribute('aria-expanded', 'false');
     }
   });
-  listEl.addEventListener('change', () => {
-    updateBillsMonthFilterButtonLabel();
-    loadExpenses();
+
+  if (searchInput) {
+    searchInput.addEventListener('input', () => renderBillsPeriodList(searchInput.value));
+  }
+
+  if (allCb) {
+    allCb.addEventListener('change', () => {
+      if (allCb.checked) {
+        listEl.querySelectorAll('.bills-filter-period-cb').forEach((cb) => { cb.checked = false; });
+      }
+    });
+  }
+
+  listEl.addEventListener('change', (e) => {
+    if (e.target.classList.contains('bills-filter-period-cb')) {
+      if (allCb) allCb.checked = false;
+    }
   });
-  if (clearBtn) {
-    clearBtn.addEventListener('click', () => {
-      listEl.querySelectorAll('.bills-filter-month-cb').forEach((cb) => { cb.checked = false; });
-      updateBillsMonthFilterButtonLabel();
+
+  if (applyBtn) {
+    applyBtn.addEventListener('click', () => {
+      if (allCb && allCb.checked) {
+        billsSelectedPeriods = new Set();
+      } else {
+        const checked = listEl.querySelectorAll('.bills-filter-period-cb:checked');
+        billsSelectedPeriods = new Set(Array.from(checked).map((cb) => cb.value));
+      }
+      updateBillsPeriodFilterButtonLabel();
+      dropdown.classList.add('app-hidden');
+      btn.setAttribute('aria-expanded', 'false');
       loadExpenses();
     });
   }
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      dropdown.classList.add('app-hidden');
+      btn.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  updateBillsPeriodFilterButtonLabel();
 }
 
 function initBillsOnce() {
@@ -1718,8 +1766,7 @@ function initBillsOnce() {
   document.getElementById('billsDeleteSelectedBtn').addEventListener('click', deleteSelectedExpenses);
   document.getElementById('billsExportBtn').addEventListener('click', exportBillsToCsv);
   document.getElementById('billsFilterStatus').addEventListener('change', loadExpenses);
-  document.getElementById('billsFilterYear').addEventListener('change', loadExpenses);
-  initBillsMonthFilter();
+  initBillsPeriodFilter();
   document.getElementById('billsFilterVendor').addEventListener('input', () => { clearTimeout(window._billsFilterTimeout); window._billsFilterTimeout = setTimeout(loadExpenses, 300); });
   document.getElementById('billsFilterCategory').addEventListener('input', () => { clearTimeout(window._billsFilterTimeout); window._billsFilterTimeout = setTimeout(loadExpenses, 300); });
   document.getElementById('expenseModalCancel').addEventListener('click', closeExpenseModal);

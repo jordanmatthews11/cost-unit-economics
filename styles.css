@@ -335,6 +335,102 @@ header {
   cursor: pointer;
 }
 
+.bills-filter-period-wrap {
+  position: relative;
+}
+
+.bills-filter-period-btn {
+  padding: 0.35rem 0.5rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-family: var(--font);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  min-width: 8rem;
+  max-width: 14rem;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bills-filter-period-btn:hover {
+  border-color: var(--color-primary);
+}
+
+.bills-filter-period-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 0.25rem;
+  z-index: 20;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem;
+  box-shadow: var(--shadow-md);
+  min-width: 12rem;
+  max-width: 20rem;
+}
+
+.bills-filter-period-actions {
+  margin-bottom: 0.35rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.bills-filter-period-all {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  margin-bottom: 0.35rem;
+}
+
+.bills-filter-period-search {
+  width: 100%;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.82rem;
+  font-family: var(--font);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.35rem;
+  box-sizing: border-box;
+}
+
+.bills-filter-period-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-height: 12rem;
+  overflow-y: auto;
+  margin-bottom: 0.35rem;
+}
+
+.bills-filter-period-option {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 0.2rem 0;
+}
+
+.bills-filter-period-option input {
+  cursor: pointer;
+}
+
+.bills-filter-period-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--color-border);
+}
+
 .bills-table {
   width: 100%;
   border-collapse: collapse;
@@ -952,51 +1048,45 @@ h2 {
   color: var(--color-text);
 }
 
-.ue-month-table {
-  table-layout: fixed;
+/* Team costs: single CSS grid for header, month rows, sub-rows */
+.ue-grid {
+  display: grid;
+  grid-template-columns: 13% 9% 11% 9% 14% 12% 12% auto;
   width: 100%;
-  border-collapse: collapse;
+  overflow-x: hidden;
   font-size: 0.9rem;
 }
 
-.ue-month-table thead th:nth-child(1) { width: 12%; }
-.ue-month-table thead th:nth-child(2) { width: 9%; }
-.ue-month-table thead th:nth-child(3) { width: 11%; }
-.ue-month-table thead th:nth-child(4) { width: 9%; }
-.ue-month-table thead th:nth-child(5) { width: 14%; }
-.ue-month-table thead th:nth-child(6) { width: 12%; }
-.ue-month-table thead th:nth-child(7) { width: 13%; }
-.ue-month-table thead th:nth-child(8) { width: 20%; }
+.ue-grid-row {
+  display: contents;
+}
 
-.ue-month-table th,
-.ue-month-table td {
+.ue-grid-cell {
   padding: 0.4rem 0.5rem;
-  text-align: left;
   border-bottom: 1px solid var(--color-border);
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
 }
 
-.ue-month-table th {
+.ue-grid-header .ue-grid-cell {
+  font-size: 0.65rem;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: var(--color-text-muted);
-  white-space: nowrap;
 }
 
-.ue-month-table tbody tr.ue-data-row:nth-of-type(odd) {
+.ue-grid-month-row:nth-of-type(odd) .ue-grid-cell {
   background: rgba(0, 0, 0, 0.02);
 }
 
-.ue-month-table tbody tr.ue-data-row:hover {
+.ue-grid-month-row:hover .ue-grid-cell {
   background: rgba(109, 54, 255, 0.04);
 }
 
-.ue-month-table .ue-month-label {
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.ue-month-table input[type="number"] {
+.ue-grid-cell input[type="number"] {
   width: 100%;
-  min-width: 4rem;
   padding: 0.35rem 0.5rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -1004,33 +1094,14 @@ h2 {
   font-family: var(--font);
 }
 
-.ue-month-table input[type="number"]:focus {
+.ue-grid-cell input[type="number"]:focus {
   outline: none;
   border-color: var(--color-primary);
 }
 
-.ue-salary-cell {
-  white-space: nowrap;
-  color: var(--color-text-muted);
-}
-
-.ue-other-cell {
-  display: block;
-}
-
-.ue-other-cell .ue-other-sum-wrap {
-  display: block;
-  width: 100%;
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: 0.1rem;
-}
-
-.ue-other-cell .ue-other-sum {
+.ue-month-label {
   font-weight: 500;
-}
-
-.ue-other-cell .ue-edit-other {
-  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .ue-avg-cell {
@@ -1038,8 +1109,28 @@ h2 {
   color: var(--color-text-muted);
 }
 
+.ue-other-cell {
+  font-weight: 500;
+}
+
+.ue-other-cell .ue-other-sum {
+  font-weight: 500;
+}
+
 .ue-actions-cell {
   white-space: nowrap;
+}
+
+.ue-grid-sub-row .ue-detail-cell {
+  grid-column: 1 / -1;
+  padding: 0.5rem 0.75rem 0.75rem 1.5rem;
+  background: rgba(0, 0, 0, 0.02);
+  border-bottom: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+.ue-grid-footer .ue-grid-cell {
+  grid-column: 1 / -1;
 }
 
 /* Collapsible team sections */
@@ -1114,18 +1205,7 @@ h2 {
   display: none;
 }
 
-/* Detail row: inline expenses under each period */
-.ue-detail-row {
-  background: rgba(0, 0, 0, 0.02);
-}
-
-.ue-detail-row .ue-detail-cell {
-  padding: 0.5rem 0.75rem 0.75rem 1.5rem;
-  border-bottom: 1px solid var(--color-border);
-  vertical-align: top;
-  overflow-wrap: break-word;
-}
-
+/* Other expenses block (inside grid sub-row) */
 .ue-expenses-block {
   min-width: 0;
   border-left: 3px solid var(--color-border);
@@ -1146,24 +1226,24 @@ h2 {
 }
 
 .ue-expenses-block .line-item-row {
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr 140px auto;
+  gap: 0.5rem;
+  align-items: center;
   min-width: 0;
+  margin-bottom: 0.4rem;
 }
 
 .ue-expenses-block .line-item-row .line-item-label {
-  flex: 1 1 auto;
   min-width: 0;
-  max-width: 100%;
 }
 
 .ue-expenses-block .line-item-row .line-item-amount {
-  width: 8rem;
-  max-width: 10rem;
-  flex-shrink: 0;
+  width: 100%;
 }
 
 .ue-expenses-block .line-item-row .line-item-remove {
-  flex-shrink: 0;
+  justify-self: end;
 }
 
 /* Add period row */

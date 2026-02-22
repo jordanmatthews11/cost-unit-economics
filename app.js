@@ -1078,9 +1078,11 @@ function renderBillsMetrics(list) {
   }
   const TEAM_BUILDING_CATEGORIES = [
     'Travel and Entertainment: Team Travel & Meals',
-    'General and Admin: Gifts'
+    'General and Admin: Gifts',
+    'General and Admin: Team Building Events'
   ];
   const TEAM_BUILDING_LABEL = 'Travel and Entertainment/Team Building';
+  const TEAM_BUILDING_EXCEPTION_VENDOR = 'Google Cloud';
 
   const byYear = {};
   const byMonth = {};
@@ -1093,7 +1095,10 @@ function renderBillsMetrics(list) {
     if (year) byYear[year] = (byYear[year] || 0) + cents;
     if (ym) byMonth[ym] = (byMonth[ym] || 0) + cents;
     const category = (e.category || '').trim();
-    if (TEAM_BUILDING_CATEGORIES.includes(category)) {
+    const vendor = (e.vendor || '').trim();
+    const isTeamBuildingCategory = TEAM_BUILDING_CATEGORIES.includes(category);
+    const isExceptionVendor = vendor === TEAM_BUILDING_EXCEPTION_VENDOR;
+    if (isTeamBuildingCategory && !isExceptionVendor) {
       teamBuildingCents += cents;
     } else {
       const v = e.vendor || '—';

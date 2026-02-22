@@ -1141,9 +1141,25 @@ h2 {
   margin-top: 0.25rem;
 }
 
+.ue-expenses-block .line-item-row {
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
 .ue-expenses-block .line-item-row .line-item-label {
+  flex: 1 1 auto;
   min-width: 0;
   max-width: 100%;
+}
+
+.ue-expenses-block .line-item-row .line-item-amount {
+  width: 8rem;
+  max-width: 10rem;
+  flex-shrink: 0;
+}
+
+.ue-expenses-block .line-item-row .line-item-remove {
+  flex-shrink: 0;
 }
 
 /* Add period row */

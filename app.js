@@ -490,7 +490,7 @@ function renderUnitEconomicsGrid() {
           <td><input type="number" data-team="${team.id}" data-month="${ym}" data-field="totalSalary" min="0" step="0.01" placeholder="0" value="${salVal}"></td>
           <td class="ue-avg-cell">${hc > 0 ? formatCurrency(avgPerPerson) : '—'}</td>
           <td class="ue-other-cell">
-            <span class="ue-other-sum">${formatCurrency(other)}</span>
+            <div class="ue-other-sum-wrap"><span class="ue-other-sum">${formatCurrency(other)}</span></div>
           </td>
           <td class="ue-actions-cell">
             <button type="button" class="btn btn-row-action btn-delete ue-remove-period" data-team="${team.id}" data-month="${ym}" aria-label="Remove period">Remove</button>

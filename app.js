@@ -316,6 +316,27 @@ function parseNumericInput(value) {
   return isNaN(num) ? 0 : num;
 }
 
+function handleNumericInputFocus(e) {
+  if (!e.target.matches('input[type="number"]')) return;
+  const el = e.target;
+  if (el.value !== '' && Number(el.value) === 0) el.value = '';
+}
+
+function handleNumericInputBlur(e) {
+  if (!e.target.matches('input[type="number"]')) return;
+  const el = e.target;
+  if (el.value === '' || String(el.value).trim() === '') {
+    el.value = '0';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+}
+
+function initNumericInputClearOnFocus() {
+  document.addEventListener('focus', handleNumericInputFocus, true);
+  document.addEventListener('blur', handleNumericInputBlur, true);
+}
+
 function getTeamTotal(teamId) {
   const t = getMonthData(teamId);
   const salaryCost = Number(t.totalSalary) || 0;
@@ -901,14 +922,16 @@ async function showExpensesLoadErrorToast(res) {
 async function loadExpenses() {
   const status = document.getElementById('billsFilterStatus').value || '';
   const category = document.getElementById('billsFilterCategory').value.trim() || '';
-  const year = document.getElementById('billsFilterYear').value || '';
-  const month = document.getElementById('billsFilterMonth').value || '';
+  const yearSel = document.getElementById('billsFilterYear');
+  let year = (yearSel && yearSel.value) || '';
+  if (!year) year = String(new Date().getFullYear());
+  const selectedMonths = getBillsSelectedMonths();
   const vendor = document.getElementById('billsFilterVendor').value.trim() || '';
   const params = new URLSearchParams();
   if (status) params.set('status', status);
   if (category) params.set('category', category);
   if (year) params.set('year', year);
-  if (month) params.set('month', month);
+  selectedMonths.forEach((m) => params.append('month', m));
   if (vendor) params.set('vendor', vendor);
   params.set('_', Date.now());
   const res = await apiFetch(`/api/expenses?${params}`);
@@ -920,6 +943,23 @@ async function loadExpenses() {
   populateBillsYearFilter();
   renderBillsTable();
   renderBillsMetrics(expensesList);
+}
+
+const BILLS_MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function getBillsSelectedMonths() {
+  const list = document.getElementById('billsFilterMonthList');
+  if (!list) return [];
+  return Array.from(list.querySelectorAll('.bills-filter-month-cb:checked')).map((cb) => cb.value);
+}
+
+function updateBillsMonthFilterButtonLabel() {
+  const btn = document.getElementById('billsFilterMonthBtn');
+  if (!btn) return;
+  const months = getBillsSelectedMonths();
+  if (months.length === 0) btn.textContent = 'All months';
+  else if (months.length === 12) btn.textContent = 'All months';
+  else btn.textContent = months.map((m) => BILLS_MONTH_LABELS[parseInt(m, 10) - 1] || m).join(', ');
 }
 
 function populateBillsYearFilter() {
@@ -934,6 +974,7 @@ function populateBillsYearFilter() {
   const keepAll = existingOpts.includes('');
   if (keepAll && years.length === Array.from(sel.options).length - 1 && years.every((y, i) => sel.options[i + 1].value === y)) return;
   sel.innerHTML = '<option value="">All years</option>' + years.map((y) => `<option value="${escapeAttr(y)}">${escapeHtml(y)}</option>`).join('');
+  if (sel.value === '') sel.value = String(currentYear);
 }
 
 function renderBillsTable() {
@@ -1613,6 +1654,41 @@ async function importBillsFromCsv(file) {
   }
 }
 
+function initBillsMonthFilter() {
+  const listEl = document.getElementById('billsFilterMonthList');
+  const btn = document.getElementById('billsFilterMonthBtn');
+  const dropdown = document.getElementById('billsFilterMonthDropdown');
+  const clearBtn = document.getElementById('billsFilterMonthClear');
+  if (!listEl || !btn || !dropdown) return;
+  listEl.innerHTML = BILLS_MONTH_LABELS.map((label, i) => {
+    const value = String(i + 1);
+    return `<label class="bills-filter-month-option"><input type="checkbox" class="bills-filter-month-cb" value="${escapeAttr(value)}" aria-label="${escapeAttr(label)}">${escapeHtml(label)}</label>`;
+  }).join('');
+  btn.addEventListener('click', () => {
+    const open = !dropdown.classList.contains('app-hidden');
+    dropdown.classList.toggle('app-hidden', open);
+    btn.setAttribute('aria-expanded', String(!open));
+  });
+  document.addEventListener('click', (e) => {
+    const wrap = document.getElementById('billsFilterMonthWrap');
+    if (wrap && !wrap.contains(e.target)) {
+      dropdown.classList.add('app-hidden');
+      btn.setAttribute('aria-expanded', 'false');
+    }
+  });
+  listEl.addEventListener('change', () => {
+    updateBillsMonthFilterButtonLabel();
+    loadExpenses();
+  });
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      listEl.querySelectorAll('.bills-filter-month-cb').forEach((cb) => { cb.checked = false; });
+      updateBillsMonthFilterButtonLabel();
+      loadExpenses();
+    });
+  }
+}
+
 function initBillsOnce() {
   if (billsInitialized) return;
   billsInitialized = true;
@@ -1643,7 +1719,7 @@ function initBillsOnce() {
   document.getElementById('billsExportBtn').addEventListener('click', exportBillsToCsv);
   document.getElementById('billsFilterStatus').addEventListener('change', loadExpenses);
   document.getElementById('billsFilterYear').addEventListener('change', loadExpenses);
-  document.getElementById('billsFilterMonth').addEventListener('change', loadExpenses);
+  initBillsMonthFilter();
   document.getElementById('billsFilterVendor').addEventListener('input', () => { clearTimeout(window._billsFilterTimeout); window._billsFilterTimeout = setTimeout(loadExpenses, 300); });
   document.getElementById('billsFilterCategory').addEventListener('input', () => { clearTimeout(window._billsFilterTimeout); window._billsFilterTimeout = setTimeout(loadExpenses, 300); });
   document.getElementById('expenseModalCancel').addEventListener('click', closeExpenseModal);
@@ -1665,4 +1741,7 @@ function initCalculator() {
   document.getElementById('copyClipboard').addEventListener('click', copySummary);
 }
 
-document.addEventListener('DOMContentLoaded', authInit);
+document.addEventListener('DOMContentLoaded', () => {
+  authInit();
+  initNumericInputClearOnFocus();
+});

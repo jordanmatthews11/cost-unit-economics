@@ -147,7 +147,11 @@ module.exports = async function handler(req, res) {
       const status = req.query.status || null;
       const category = req.query.category || null;
       const year = req.query.year || null;
-      const month = req.query.month || null;
+      let month = req.query.month;
+      if (month == null) month = null;
+      else if (Array.isArray(month)) month = month.filter((m) => m != null && String(m).trim() !== '').map((m) => String(m).trim());
+      else month = [String(month).trim()].filter(Boolean);
+      if (month && month.length === 0) month = null;
       const vendor = req.query.vendor || null;
       const rows = await db.getExpensesByUserId(userId, status, category, year, month, vendor);
       res.status(200).json(rows);

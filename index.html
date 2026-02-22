@@ -130,21 +130,15 @@
           <select id="billsFilterYear" class="filter-select" aria-label="Filter by year">
             <option value="">All years</option>
           </select>
-          <select id="billsFilterMonth" class="filter-select" aria-label="Filter by month">
-            <option value="">All months</option>
-            <option value="1">Jan</option>
-            <option value="2">Feb</option>
-            <option value="3">Mar</option>
-            <option value="4">Apr</option>
-            <option value="5">May</option>
-            <option value="6">Jun</option>
-            <option value="7">Jul</option>
-            <option value="8">Aug</option>
-            <option value="9">Sep</option>
-            <option value="10">Oct</option>
-            <option value="11">Nov</option>
-            <option value="12">Dec</option>
-          </select>
+          <div class="bills-filter-month-wrap" id="billsFilterMonthWrap">
+            <button type="button" class="bills-filter-month-btn filter-select" id="billsFilterMonthBtn" aria-label="Filter by month" aria-haspopup="listbox" aria-expanded="false">All months</button>
+            <div id="billsFilterMonthDropdown" class="bills-filter-month-dropdown app-hidden" role="listbox" aria-multiselectable="true">
+              <div class="bills-filter-month-actions">
+                <button type="button" class="bills-filter-month-clear" id="billsFilterMonthClear">Clear</button>
+              </div>
+              <div class="bills-filter-month-list" id="billsFilterMonthList"></div>
+            </div>
+          </div>
           <input type="text" id="billsFilterVendor" class="filter-input" placeholder="Vendor">
           <input type="text" id="billsFilterCategory" class="filter-input" placeholder="Category">
         </div>

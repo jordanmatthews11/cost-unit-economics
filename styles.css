@@ -259,6 +259,82 @@ header {
   max-width: 120px;
 }
 
+.bills-filter-month-wrap {
+  position: relative;
+}
+
+.bills-filter-month-btn {
+  padding: 0.35rem 0.5rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-family: var(--font);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  min-width: 6rem;
+  text-align: left;
+}
+
+.bills-filter-month-btn:hover {
+  border-color: var(--color-primary);
+}
+
+.bills-filter-month-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 0.25rem;
+  z-index: 20;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem;
+  box-shadow: var(--shadow-md);
+  min-width: 8rem;
+}
+
+.bills-filter-month-actions {
+  margin-bottom: 0.35rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.bills-filter-month-clear {
+  padding: 0.2rem 0.4rem;
+  font-size: 0.75rem;
+  font-family: var(--font);
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.bills-filter-month-clear:hover {
+  text-decoration: underline;
+}
+
+.bills-filter-month-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+.bills-filter-month-option {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 0.2rem 0;
+}
+
+.bills-filter-month-option input {
+  cursor: pointer;
+}
+
 .bills-table {
   width: 100%;
   border-collapse: collapse;
@@ -877,10 +953,20 @@ h2 {
 }
 
 .ue-month-table {
+  table-layout: fixed;
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
 }
+
+.ue-month-table thead th:nth-child(1) { width: 12%; }
+.ue-month-table thead th:nth-child(2) { width: 9%; }
+.ue-month-table thead th:nth-child(3) { width: 11%; }
+.ue-month-table thead th:nth-child(4) { width: 9%; }
+.ue-month-table thead th:nth-child(5) { width: 14%; }
+.ue-month-table thead th:nth-child(6) { width: 12%; }
+.ue-month-table thead th:nth-child(7) { width: 13%; }
+.ue-month-table thead th:nth-child(8) { width: 20%; }
 
 .ue-month-table th,
 .ue-month-table td {
@@ -1016,6 +1102,8 @@ h2 {
 
 .ue-section-body {
   padding-top: 0.75rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .ue-section-body[hidden] {
@@ -1031,9 +1119,11 @@ h2 {
   padding: 0.5rem 0.75rem 0.75rem 1.5rem;
   border-bottom: 1px solid var(--color-border);
   vertical-align: top;
+  overflow-wrap: break-word;
 }
 
 .ue-expenses-block {
+  min-width: 0;
   border-left: 3px solid var(--color-border);
   padding-left: 0.75rem;
 }
@@ -1049,6 +1139,11 @@ h2 {
 
 .ue-expenses-block .ue-add-line-item {
   margin-top: 0.25rem;
+}
+
+.ue-expenses-block .line-item-row .line-item-label {
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Add period row */

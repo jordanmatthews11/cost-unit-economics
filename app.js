@@ -782,22 +782,6 @@ function renderBreakdownTable(grandTotal, totalProjects, totalResponses) {
       tbody.appendChild(periodRow);
     });
   });
-
-  const overallCostPerProject = totalProjects > 0 ? grandTotal / totalProjects : 0;
-  const overallCostPerResponse = totalResponses > 0 ? grandTotal / totalResponses : 0;
-  const totalsRow = document.createElement('tr');
-  totalsRow.className = 'breakdown-totals-row';
-  totalsRow.innerHTML = `
-    <td><strong>Total</strong></td>
-    <td><strong>${formatCurrency(grandTotal)}</strong></td>
-    <td><strong>100.0%</strong></td>
-    <td><strong>${formatNumber(totalProjects)}</strong></td>
-    <td><strong>${formatCurrency(overallCostPerProject)}</strong></td>
-    <td><strong>${formatNumber(totalResponses)}</strong></td>
-    <td><strong>${formatCurrency(overallCostPerResponse)}</strong></td>
-  `;
-  totalsRow.style.borderTop = '2px solid var(--color-border)';
-  tbody.appendChild(totalsRow);
 }
 
 // ---- Bar Chart ----

@@ -132,6 +132,11 @@
             <div id="billsFilterPeriodDropdown" class="bills-filter-period-dropdown app-hidden">
               <div class="bills-filter-period-actions">
                 <label class="bills-filter-period-all"><input type="checkbox" id="billsFilterPeriodAll"> All</label>
+                <span class="bills-filter-period-quicklinks">
+                  <button type="button" id="billsFilterPeriodSelectAll">Select all</button>
+                  <span aria-hidden="true">·</span>
+                  <button type="button" id="billsFilterPeriodSelectNone">Select none</button>
+                </span>
               </div>
               <input type="text" class="bills-filter-period-search" id="billsFilterPeriodSearch" placeholder="Search month, year" aria-label="Search periods">
               <div class="bills-filter-period-list" id="billsFilterPeriodList"></div>

@@ -1710,11 +1710,42 @@ function renderBillsPeriodList(filterText) {
   if (!listEl) return;
   const options = getPeriodOptions();
   const lower = (filterText || '').toLowerCase();
-  const filtered = lower ? options.filter((ym) => formatPeriodLabel(ym).toLowerCase().includes(lower)) : options;
-  listEl.innerHTML = filtered.map((ym) => {
-    const checked = billsSelectedPeriods.size === 0 || billsSelectedPeriods.has(ym);
-    return `<label class="bills-filter-period-option"><input type="checkbox" class="bills-filter-period-cb" value="${escapeAttr(ym)}" ${checked ? ' checked' : ''} aria-label="${escapeAttr(formatPeriodLabel(ym))}">${escapeHtml(formatPeriodLabel(ym))}</label>`;
-  }).join('');
+  const filtered = lower
+    ? options.filter((ym) => formatPeriodLabel(ym).toLowerCase().includes(lower) || ym.slice(0, 4).includes(lower))
+    : options;
+
+  const byYear = {};
+  filtered.forEach((ym) => {
+    const y = ym.slice(0, 4);
+    if (!byYear[y]) byYear[y] = [];
+    byYear[y].push(ym);
+  });
+
+  const years = Object.keys(byYear).sort((a, b) => b.localeCompare(a));
+  let html = '';
+  years.forEach((y) => {
+    const months = byYear[y];
+    const checkedMonths = months.filter((ym) => billsSelectedPeriods.size === 0 || billsSelectedPeriods.has(ym));
+    const allChecked = checkedMonths.length === months.length;
+    const someChecked = checkedMonths.length > 0 && !allChecked;
+    html += `<div class="bills-filter-year-group">
+      <label class="bills-filter-year-row">
+        <input type="checkbox" class="bills-filter-year-cb" data-year="${escapeAttr(y)}"
+          ${allChecked ? ' checked' : ''} ${someChecked ? ' data-indeterminate="true"' : ''} aria-label="Year ${escapeAttr(y)}">
+        <strong>${escapeHtml(y)}</strong>
+      </label>`;
+    months.forEach((ym) => {
+      const checked = billsSelectedPeriods.size === 0 || billsSelectedPeriods.has(ym);
+      html += `<label class="bills-filter-period-option bills-filter-period-month">
+        <input type="checkbox" class="bills-filter-period-cb" value="${escapeAttr(ym)}" ${checked ? ' checked' : ''} aria-label="${escapeAttr(formatPeriodLabel(ym))}">${escapeHtml(formatPeriodLabel(ym))}</label>`;
+    });
+    html += `</div>`;
+  });
+  listEl.innerHTML = html;
+
+  listEl.querySelectorAll('.bills-filter-year-cb[data-indeterminate="true"]').forEach((cb) => {
+    cb.indeterminate = true;
+  });
 }
 
 function initBillsPeriodFilter() {
@@ -1755,15 +1786,50 @@ function initBillsPeriodFilter() {
     allCb.addEventListener('change', () => {
       if (allCb.checked) {
         listEl.querySelectorAll('.bills-filter-period-cb').forEach((cb) => { cb.checked = false; });
+        listEl.querySelectorAll('.bills-filter-year-cb').forEach((cb) => { cb.checked = false; cb.indeterminate = false; });
       }
     });
   }
 
   listEl.addEventListener('change', (e) => {
+    if (e.target.classList.contains('bills-filter-year-cb')) {
+      const year = e.target.dataset.year;
+      const checked = e.target.checked;
+      e.target.indeterminate = false;
+      listEl.querySelectorAll('.bills-filter-period-cb').forEach((cb) => {
+        if (cb.value.startsWith(year + '-')) cb.checked = checked;
+      });
+      if (allCb) allCb.checked = false;
+    }
     if (e.target.classList.contains('bills-filter-period-cb')) {
+      const year = e.target.value.slice(0, 4);
+      const yearCb = listEl.querySelector(`.bills-filter-year-cb[data-year="${year}"]`);
+      if (yearCb) {
+        const allInYear = [...listEl.querySelectorAll('.bills-filter-period-cb')].filter((cb) => cb.value.startsWith(year + '-'));
+        const checkedInYear = allInYear.filter((cb) => cb.checked);
+        yearCb.checked = checkedInYear.length === allInYear.length;
+        yearCb.indeterminate = checkedInYear.length > 0 && checkedInYear.length < allInYear.length;
+      }
       if (allCb) allCb.checked = false;
     }
   });
+
+  const selectAllBtn = document.getElementById('billsFilterPeriodSelectAll');
+  const selectNoneBtn = document.getElementById('billsFilterPeriodSelectNone');
+  if (selectAllBtn) {
+    selectAllBtn.addEventListener('click', () => {
+      listEl.querySelectorAll('.bills-filter-period-cb').forEach((cb) => { cb.checked = true; });
+      listEl.querySelectorAll('.bills-filter-year-cb').forEach((cb) => { cb.checked = true; cb.indeterminate = false; });
+      if (allCb) allCb.checked = false;
+    });
+  }
+  if (selectNoneBtn) {
+    selectNoneBtn.addEventListener('click', () => {
+      listEl.querySelectorAll('.bills-filter-period-cb').forEach((cb) => { cb.checked = false; });
+      listEl.querySelectorAll('.bills-filter-year-cb').forEach((cb) => { cb.checked = false; cb.indeterminate = false; });
+      if (allCb) allCb.checked = false;
+    });
+  }
 
   if (applyBtn) {
     applyBtn.addEventListener('click', () => {

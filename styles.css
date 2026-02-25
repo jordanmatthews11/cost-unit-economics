@@ -376,9 +376,34 @@ header {
 }
 
 .bills-filter-period-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 0.35rem;
   padding-bottom: 0.35rem;
   border-bottom: 1px solid var(--color-border);
+}
+
+.bills-filter-period-quicklinks {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.bills-filter-period-quicklinks button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-primary);
+  font-size: 0.75rem;
+  font-family: var(--font);
+  cursor: pointer;
+}
+
+.bills-filter-period-quicklinks button:hover {
+  text-decoration: underline;
 }
 
 .bills-filter-period-all {
@@ -421,6 +446,27 @@ header {
 
 .bills-filter-period-option input {
   cursor: pointer;
+}
+
+.bills-filter-year-group {
+  margin-bottom: 0.25rem;
+}
+
+.bills-filter-year-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 0.2rem 0;
+}
+
+.bills-filter-year-row input {
+  cursor: pointer;
+}
+
+.bills-filter-period-month {
+  padding-left: 1.5rem;
 }
 
 .bills-filter-period-buttons {

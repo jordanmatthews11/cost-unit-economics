@@ -611,7 +611,7 @@ function toggleSection(e) {
   const expanded = body.hidden;
   body.hidden = !expanded;
   btn.setAttribute('aria-expanded', String(!expanded));
-  state.unitEconomics.sectionsExpanded[teamId] = !expanded;
+  state.unitEconomics.sectionsExpanded[teamId] = expanded;
   saveUnitEconomicsToStorage();
 }
 

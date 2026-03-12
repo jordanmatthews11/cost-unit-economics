@@ -707,7 +707,7 @@ function recalculate() {
 
   renderResultsByTeam();
   renderBreakdownTable(grandTotal, totalProjects, totalResponses);
-  renderChart(grandTotal);
+  renderTrendCharts();
 }
 
 // ---- Results by Team (dashboard summary) ----
@@ -812,29 +812,91 @@ function renderBreakdownTable(grandTotal, totalProjects, totalResponses) {
   });
 }
 
-// ---- Bar Chart ----
+// ---- Trend Charts (Chart.js) ----
 
-function renderChart(grandTotal) {
-  const container = document.getElementById('chartContainer');
-  container.innerHTML = '';
+const TEAM_COLORS = ['#7c3aed', '#10b981', '#f59e0b', '#3b82f6', '#ef4444'];
+const _chartInstances = {};
 
-  const maxCost = Math.max(...TEAMS.map((t) => getTeamYearTotal(t.id)), 1);
+function getAllPeriods() {
+  const set = new Set();
+  TEAMS.forEach((t) => getTeamPeriods(t.id).forEach((ym) => set.add(ym)));
+  return [...set].sort();
+}
 
-  TEAMS.forEach((team) => {
-    const teamCost = getTeamYearTotal(team.id);
-    const widthPct = maxCost > 0 ? (teamCost / maxCost) * 100 : 0;
+function renderTrendCharts() {
+  const periods = getAllPeriods();
+  const chartSection = document.querySelector('.chart-section .trend-charts');
+  if (chartSection) chartSection.classList.toggle('app-hidden', periods.length === 0);
 
-    const row = document.createElement('div');
-    row.className = 'chart-bar-row';
-    row.innerHTML = `
-      <div class="chart-bar-label">${team.name}</div>
-      <div class="chart-bar-track">
-        <div class="chart-bar-fill" style="width: ${Math.max(widthPct, 0)}%">
-          <span>${formatCurrency(teamCost)}</span>
-        </div>
-      </div>
-    `;
-    container.appendChild(row);
+  const makeDatasets = (valueFn) =>
+    TEAMS.map((team, i) => ({
+      label: team.name,
+      data: periods.map((ym) => valueFn(team.id, ym)),
+      borderColor: TEAM_COLORS[i % TEAM_COLORS.length],
+      backgroundColor: TEAM_COLORS[i % TEAM_COLORS.length] + '22',
+      tension: 0.3,
+      pointRadius: 4,
+      fill: false,
+    }));
+
+  const chartDefs = [
+    {
+      id: 'chartTotalCost',
+      datasets: makeDatasets((id, ym) => getTeamTotalForPeriod(id, ym) / 100),
+      yLabel: 'Cost ($)',
+    },
+    {
+      id: 'chartCostPerProject',
+      datasets: makeDatasets((id, ym) => {
+        const projects = getMonthDataFor(id, ym).numProjects || 0;
+        const cost = getTeamTotalForPeriod(id, ym);
+        return projects > 0 ? cost / projects / 100 : null;
+      }),
+      yLabel: '$ per Project',
+    },
+    {
+      id: 'chartCostPerResponse',
+      datasets: makeDatasets((id, ym) => {
+        const responses = getMonthDataFor(id, ym).numResponses || 0;
+        const cost = getTeamTotalForPeriod(id, ym);
+        return responses > 0 ? cost / responses / 100 : null;
+      }),
+      yLabel: '$ per Response Group',
+    },
+  ];
+
+  const labels = periods.length ? periods.map(getPeriodLabel) : [];
+
+  chartDefs.forEach(({ id, datasets, yLabel }) => {
+    if (_chartInstances[id]) _chartInstances[id].destroy();
+    const ctx = document.getElementById(id);
+    if (!ctx) return;
+    _chartInstances[id] = new Chart(ctx, {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: 2.5,
+        spanGaps: true,
+        plugins: {
+          legend: { position: 'top' },
+          tooltip: {
+            callbacks: {
+              label: (ctx) =>
+                ` ${ctx.dataset.label}: $${(ctx.parsed.y ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            },
+          },
+        },
+        scales: {
+          y: {
+            title: { display: true, text: yLabel },
+            beginAtZero: false,
+          },
+          x: { grid: { display: false } },
+        },
+      },
+    });
   });
 }
 

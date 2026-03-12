@@ -6,6 +6,7 @@
   <link rel="icon" type="image/png" href="favicon.png">
   <title>Ops Finance Hub</title>
   <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
@@ -119,11 +120,22 @@
       </div>
     </aside>
 
-    <!-- Cost Distribution Chart -->
+    <!-- Trend Charts -->
     <section class="chart-section">
-      <h2>Cost Distribution</h2>
-      <div class="chart-container" id="chartContainer">
-        <!-- Filled by app.js -->
+      <h2>Trends</h2>
+      <div class="trend-charts">
+        <div class="trend-chart-block">
+          <h3 class="trend-chart-title">Total Cost</h3>
+          <canvas id="chartTotalCost"></canvas>
+        </div>
+        <div class="trend-chart-block">
+          <h3 class="trend-chart-title">Cost per Project</h3>
+          <canvas id="chartCostPerProject"></canvas>
+        </div>
+        <div class="trend-chart-block">
+          <h3 class="trend-chart-title">Cost per Response Group</h3>
+          <canvas id="chartCostPerResponse"></canvas>
+        </div>
       </div>
     </section>
 

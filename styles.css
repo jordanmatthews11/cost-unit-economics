@@ -1009,6 +1009,24 @@ h2 {
   white-space: nowrap;
 }
 
+.delta {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 0.35rem;
+}
+
+.delta-up {
+  color: #ef4444;
+}
+
+.delta-down {
+  color: #10b981;
+}
+
+.delta-flat {
+  color: var(--color-text-muted);
+}
+
 /* ---- Volume Divider (inside team cards) ---- */
 
 .volume-divider {

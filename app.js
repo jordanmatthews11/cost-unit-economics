@@ -183,7 +183,7 @@ const VOLUME_FIELDS = [
 
 const COST_FIELDS = [
   { key: 'headcount', label: 'Headcount', placeholder: 'e.g. 5', step: '1' },
-  { key: 'totalSalary', label: 'Total Salary ($)', placeholder: 'e.g. 475000', step: '0.01' },
+  { key: 'totalSalary', label: 'Payroll COGS ($)', placeholder: 'e.g. 475000', step: '0.01' },
 ];
 
 const UNIT_ECONOMICS_STORAGE_KEY = 'cost_unit_economics_monthly';
@@ -307,6 +307,14 @@ function formatPercent(value) {
   return (value * 100).toFixed(1) + '%';
 }
 
+function formatDelta(current, previous) {
+  if (previous == null || previous === 0 || !isFinite(current) || !isFinite(previous)) return '';
+  const pctChange = ((current - previous) / previous) * 100;
+  const arrow = pctChange > 0 ? '\u2191' : pctChange < 0 ? '\u2193' : '\u2192';
+  const cls = pctChange > 0 ? 'delta-up' : pctChange < 0 ? 'delta-down' : 'delta-flat';
+  return ` <span class="delta ${cls}">${arrow} ${Math.abs(pctChange).toFixed(1)}%</span>`;
+}
+
 function formatNumber(value) {
   if (!isFinite(value) || isNaN(value)) return '0';
   return new Intl.NumberFormat('en-US').format(value);
@@ -374,6 +382,14 @@ function getTeamAllPeriodsProjects(teamId) {
 
 function getTeamAllPeriodsResponses(teamId) {
   return getTeamPeriods(teamId).reduce((sum, ym) => sum + (getMonthDataFor(teamId, ym).numResponses || 0), 0);
+}
+
+function getTeamAllPeriodsHeadcount(teamId) {
+  return getTeamPeriods(teamId).reduce((sum, ym) => sum + (getMonthDataFor(teamId, ym).headcount || 0), 0);
+}
+
+function getTotalHeadcountAllPeriods() {
+  return TEAMS.reduce((sum, t) => sum + getTeamAllPeriodsHeadcount(t.id), 0);
 }
 
 function getGrandTotalAllPeriods() {
@@ -522,7 +538,7 @@ function renderUnitEconomicsGrid() {
               <div class="ue-grid-cell">Projects</div>
               <div class="ue-grid-cell">Response Groups</div>
               <div class="ue-grid-cell">Headcount</div>
-              <div class="ue-grid-cell">Total Salary ($)</div>
+              <div class="ue-grid-cell">Payroll COGS ($)</div>
               <div class="ue-grid-cell">Avg per person</div>
               <div class="ue-grid-cell">Other</div>
               <div class="ue-grid-cell"></div>
@@ -698,12 +714,16 @@ function recalculate() {
   const grandTotal = getYearGrandTotal();
   const totalProjects = getYearTotalProjects();
   const totalResponses = getYearTotalResponses();
+  const totalHeadcount = getTotalHeadcountAllPeriods();
   const overallCostPerProject = totalProjects > 0 ? grandTotal / totalProjects : 0;
   const overallCostPerResponse = totalResponses > 0 ? grandTotal / totalResponses : 0;
+  const overallCostPerHeadcount = totalHeadcount > 0 ? grandTotal / totalHeadcount : 0;
 
   document.getElementById('totalCost').textContent = formatCurrency(grandTotal);
   document.getElementById('costPerProject').textContent = formatCurrency(overallCostPerProject);
   document.getElementById('costPerResponse').textContent = formatCurrency(overallCostPerResponse);
+  const costPerHcEl = document.getElementById('costPerHeadcount');
+  if (costPerHcEl) costPerHcEl.textContent = formatCurrency(overallCostPerHeadcount);
 
   renderResultsByTeam();
   renderBreakdownTable(grandTotal, totalProjects, totalResponses);
@@ -721,15 +741,38 @@ function renderResultsByTeam() {
     const teamCost = getTeamYearTotal(team.id);
     const teamProjects = getTeamYearProjects(team.id);
     const teamResponses = getTeamYearResponses(team.id);
+    const teamHeadcount = getTeamAllPeriodsHeadcount(team.id);
     const perProject = teamProjects > 0 ? teamCost / teamProjects : 0;
     const perResponse = teamResponses > 0 ? teamCost / teamResponses : 0;
+    const perHeadcount = teamHeadcount > 0 ? teamCost / teamHeadcount : 0;
+
+    const periods = getTeamPeriods(team.id);
+    let deltaProject = '';
+    let deltaResponse = '';
+    if (periods.length >= 2) {
+      const prev = periods[periods.length - 2];
+      const curr = periods[periods.length - 1];
+      const costPrev = getTeamTotalForPeriod(team.id, prev);
+      const costCurr = getTeamTotalForPeriod(team.id, curr);
+      const projPrev = getMonthDataFor(team.id, prev).numProjects || 0;
+      const projCurr = getMonthDataFor(team.id, curr).numProjects || 0;
+      const respPrev = getMonthDataFor(team.id, prev).numResponses || 0;
+      const respCurr = getMonthDataFor(team.id, curr).numResponses || 0;
+      const perProjPrev = projPrev > 0 ? costPrev / projPrev : 0;
+      const perProjCurr = projCurr > 0 ? costCurr / projCurr : 0;
+      const perRespPrev = respPrev > 0 ? costPrev / respPrev : 0;
+      const perRespCurr = respCurr > 0 ? costCurr / respCurr : 0;
+      deltaProject = formatDelta(perProjCurr, perProjPrev);
+      deltaResponse = formatDelta(perRespCurr, perRespPrev);
+    }
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><strong>${escapeHtml(team.name)}</strong></td>
       <td>${formatCurrency(teamCost)}</td>
-      <td>${formatCurrency(perProject)}</td>
-      <td>${formatCurrency(perResponse)}</td>
+      <td>${formatCurrency(perProject)}${deltaProject}</td>
+      <td>${formatCurrency(perResponse)}${deltaResponse}</td>
+      <td>${formatCurrency(perHeadcount)}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -784,7 +827,7 @@ function renderBreakdownTable(grandTotal, totalProjects, totalResponses) {
     });
     tbody.appendChild(teamRow);
 
-    periods.forEach((ym) => {
+    periods.forEach((ym, idx) => {
       const periodCost = getTeamTotalForPeriod(team.id, ym);
       const periodProjects = getMonthDataFor(team.id, ym).numProjects || 0;
       const periodResponses = getMonthDataFor(team.id, ym).numResponses || 0;
@@ -792,6 +835,19 @@ function renderBreakdownTable(grandTotal, totalProjects, totalResponses) {
       const periodPct = periodGrandTotal > 0 ? periodCost / periodGrandTotal : 0;
       const periodPerProject = periodProjects > 0 ? periodCost / periodProjects : 0;
       const periodPerResponse = periodResponses > 0 ? periodCost / periodResponses : 0;
+
+      let deltaProject = '';
+      let deltaResponse = '';
+      if (idx > 0) {
+        const prevYm = periods[idx - 1];
+        const costPrev = getTeamTotalForPeriod(team.id, prevYm);
+        const projPrev = getMonthDataFor(team.id, prevYm).numProjects || 0;
+        const respPrev = getMonthDataFor(team.id, prevYm).numResponses || 0;
+        const perProjPrev = projPrev > 0 ? costPrev / projPrev : 0;
+        const perRespPrev = respPrev > 0 ? costPrev / respPrev : 0;
+        deltaProject = formatDelta(periodPerProject, perProjPrev);
+        deltaResponse = formatDelta(periodPerResponse, perRespPrev);
+      }
 
       const periodRow = document.createElement('tr');
       periodRow.className = 'breakdown-period-row';
@@ -803,9 +859,9 @@ function renderBreakdownTable(grandTotal, totalProjects, totalResponses) {
         <td>${formatCurrency(periodCost)}</td>
         <td>${formatPercent(periodPct)}</td>
         <td>${formatNumber(periodProjects)}</td>
-        <td>${formatCurrency(periodPerProject)}</td>
+        <td>${formatCurrency(periodPerProject)}${deltaProject}</td>
         <td>${formatNumber(periodResponses)}</td>
-        <td>${formatCurrency(periodPerResponse)}</td>
+        <td>${formatCurrency(periodPerResponse)}${deltaResponse}</td>
       `;
       tbody.appendChild(periodRow);
     });
@@ -839,6 +895,11 @@ function renderTrendCharts() {
       fill: false,
     }));
 
+  const volumeProjects = periods.map((ym) =>
+    TEAMS.reduce((sum, t) => sum + (getMonthDataFor(t.id, ym).numProjects || 0), 0));
+  const volumeResponses = periods.map((ym) =>
+    TEAMS.reduce((sum, t) => sum + (getMonthDataFor(t.id, ym).numResponses || 0), 0));
+
   const chartDefs = [
     {
       id: 'chartCostPerProject',
@@ -848,6 +909,8 @@ function renderTrendCharts() {
         return projects > 0 ? cost / projects / 100 : null;
       }),
       yLabel: '$ per Project',
+      volumeLabel: 'Projects',
+      volumeData: volumeProjects,
     },
     {
       id: 'chartCostPerResponse',
@@ -857,18 +920,35 @@ function renderTrendCharts() {
         return responses > 0 ? cost / responses / 100 : null;
       }),
       yLabel: '$ per Response Group',
+      volumeLabel: 'Response Groups',
+      volumeData: volumeResponses,
     },
   ];
 
   const labels = periods.length ? periods.map(getPeriodLabel) : [];
 
-  chartDefs.forEach(({ id, datasets, yLabel }) => {
+  chartDefs.forEach(({ id, datasets, yLabel, volumeLabel, volumeData }) => {
     if (_chartInstances[id]) _chartInstances[id].destroy();
     const ctx = document.getElementById(id);
     if (!ctx) return;
+
+    const volumeDataset = {
+      label: volumeLabel,
+      data: volumeData,
+      yAxisID: 'y1',
+      borderColor: '#9ca3af',
+      backgroundColor: 'transparent',
+      borderDash: [6, 3],
+      tension: 0.3,
+      pointRadius: 3,
+      fill: false,
+    };
+
+    const allDatasets = [...datasets, volumeDataset];
+
     _chartInstances[id] = new Chart(ctx, {
       type: 'line',
-      data: { labels, datasets },
+      data: { labels, datasets: allDatasets },
       options: {
         responsive: true,
         maintainAspectRatio: true,
@@ -878,8 +958,13 @@ function renderTrendCharts() {
           legend: { position: 'top' },
           tooltip: {
             callbacks: {
-              label: (ctx) =>
-                ` ${ctx.dataset.label}: $${(ctx.parsed.y ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+              label: (ctx) => {
+                const val = ctx.parsed.y ?? 0;
+                if (ctx.dataset.yAxisID === 'y1') {
+                  return ` ${ctx.dataset.label}: ${Number(val).toLocaleString('en-US')}`;
+                }
+                return ` ${ctx.dataset.label}: $${Number(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+              },
             },
           },
         },
@@ -887,6 +972,12 @@ function renderTrendCharts() {
           y: {
             title: { display: true, text: yLabel },
             beginAtZero: false,
+          },
+          y1: {
+            position: 'right',
+            title: { display: true, text: volumeLabel },
+            grid: { drawOnChartArea: false },
+            beginAtZero: true,
           },
           x: { grid: { display: false } },
         },

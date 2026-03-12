@@ -954,6 +954,61 @@ h2 {
   letter-spacing: -0.02em;
 }
 
+.results-by-team {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.results-by-team-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.75rem 0;
+}
+
+.results-by-team-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.results-by-team-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.results-by-team-table th,
+.results-by-team-table td {
+  padding: 0.6rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.results-by-team-table th {
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.results-by-team-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.results-by-team-table tbody tr:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.results-by-team-table td:not(:first-child) {
+  white-space: nowrap;
+}
+
 /* ---- Volume Divider (inside team cards) ---- */
 
 .volume-divider {

@@ -705,8 +705,34 @@ function recalculate() {
   document.getElementById('costPerProject').textContent = formatCurrency(overallCostPerProject);
   document.getElementById('costPerResponse').textContent = formatCurrency(overallCostPerResponse);
 
+  renderResultsByTeam();
   renderBreakdownTable(grandTotal, totalProjects, totalResponses);
   renderChart(grandTotal);
+}
+
+// ---- Results by Team (dashboard summary) ----
+
+function renderResultsByTeam() {
+  const tbody = document.getElementById('resultsByTeamBody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+  TEAMS.forEach((team) => {
+    const teamCost = getTeamYearTotal(team.id);
+    const teamProjects = getTeamYearProjects(team.id);
+    const teamResponses = getTeamYearResponses(team.id);
+    const perProject = teamProjects > 0 ? teamCost / teamProjects : 0;
+    const perResponse = teamResponses > 0 ? teamCost / teamResponses : 0;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${escapeHtml(team.name)}</strong></td>
+      <td>${formatCurrency(teamCost)}</td>
+      <td>${formatCurrency(perProject)}</td>
+      <td>${formatCurrency(perResponse)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
 }
 
 // ---- Breakdown Table ----

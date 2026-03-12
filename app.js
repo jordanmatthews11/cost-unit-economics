@@ -841,11 +841,6 @@ function renderTrendCharts() {
 
   const chartDefs = [
     {
-      id: 'chartTotalCost',
-      datasets: makeDatasets((id, ym) => getTeamTotalForPeriod(id, ym) / 100),
-      yLabel: 'Cost ($)',
-    },
-    {
       id: 'chartCostPerProject',
       datasets: makeDatasets((id, ym) => {
         const projects = getMonthDataFor(id, ym).numProjects || 0;

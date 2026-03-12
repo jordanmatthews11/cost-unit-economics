@@ -71,6 +71,10 @@ module.exports = async function handler(req, res) {
     res.status(401).json({ error: 'Unauthorized' });
     return;
   }
+  if (user.denied) {
+    res.status(403).json({ error: 'Access denied' });
+    return;
+  }
   const userId = user.sub;
   if (!process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
     res.status(503).json({ error: 'Server misconfigured', code: 'FIRESTORE_NOT_CONFIGURED' });

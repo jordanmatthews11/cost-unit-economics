@@ -28,6 +28,10 @@ module.exports = async function handler(req, res) {
     res.status(401).json({ error: 'Unauthorized' });
     return;
   }
+  if (user.denied) {
+    res.status(403).json({ error: 'Access denied' });
+    return;
+  }
   try {
     const { buffer, filename } = await parseMultipart(req);
     if (!buffer || buffer.length === 0) {

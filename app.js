@@ -52,6 +52,8 @@ function showLogin() {
   currentUser = null;
   document.getElementById('loginContainer').classList.remove('app-hidden');
   document.getElementById('appContent').classList.add('app-hidden');
+  const subtitle = document.querySelector('.login-subtitle');
+  if (subtitle) subtitle.textContent = 'Sign in with your Google account to continue';
   renderGoogleButton();
 }
 
@@ -938,6 +940,14 @@ async function apiFetch(path, options = {}) {
     currentUser = null;
     showLogin();
     return { ok: false, status: 401 };
+  }
+  if (res.status === 403) {
+    clearStoredUser();
+    currentUser = null;
+    showLogin();
+    const subtitle = document.querySelector('.login-subtitle');
+    if (subtitle) subtitle.textContent = 'Your account does not have access to this app.';
+    return { ok: false, status: 403 };
   }
   return res;
 }
@@ -1897,6 +1907,30 @@ function initBillsOnce() {
   loadExpenses();
 }
 
+// ---- Unit Economics Drawer ----
+
+function openTeamCostsDrawer() {
+  const drawer = document.getElementById('ueDrawer');
+  const overlay = document.getElementById('ueDrawerOverlay');
+  if (!drawer || !overlay) return;
+  drawer.classList.add('open');
+  drawer.classList.remove('app-hidden');
+  overlay.classList.add('open');
+  overlay.classList.remove('app-hidden');
+}
+
+function closeTeamCostsDrawer() {
+  const drawer = document.getElementById('ueDrawer');
+  const overlay = document.getElementById('ueDrawerOverlay');
+  if (!drawer || !overlay) return;
+  drawer.classList.remove('open');
+  overlay.classList.remove('open');
+  setTimeout(() => {
+    drawer.classList.add('app-hidden');
+    overlay.classList.add('app-hidden');
+  }, 300);
+}
+
 // ---- Initialize ----
 
 function initCalculator() {
@@ -1905,6 +1939,18 @@ function initCalculator() {
   recalculate();
   document.getElementById('exportCsv').addEventListener('click', exportCSV);
   document.getElementById('copyClipboard').addEventListener('click', copySummary);
+  const openBtn = document.getElementById('ueOpenDrawerBtn');
+  const closeBtn = document.getElementById('ueDrawerClose');
+  const overlay = document.getElementById('ueDrawerOverlay');
+  if (openBtn) {
+    openBtn.addEventListener('click', openTeamCostsDrawer);
+  }
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeTeamCostsDrawer);
+  }
+  if (overlay) {
+    overlay.addEventListener('click', closeTeamCostsDrawer);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

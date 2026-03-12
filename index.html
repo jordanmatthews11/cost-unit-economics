@@ -55,15 +55,9 @@
       </div>
     </section>
 
-    <!-- Team Cost Inputs (period-based, collapsible sections) -->
-    <section class="teams-section">
-      <div class="teams-section-header">
-        <h2>Team Costs</h2>
-      </div>
-      <div id="unitEconomicsTeamsContainer">
-        <!-- Per-team period tables rendered by app.js -->
-      </div>
-    </section>
+    <div class="ue-actions-bar">
+      <button type="button" class="btn btn-primary" id="ueOpenDrawerBtn">Input Team Costs</button>
+    </div>
 
     <!-- Per-Team Breakdown Table -->
     <section class="breakdown-section" id="breakdownSection">
@@ -87,6 +81,25 @@
         </table>
       </div>
     </section>
+
+    <!-- Team Costs Drawer -->
+    <div class="ue-drawer-overlay app-hidden" id="ueDrawerOverlay"></div>
+    <aside class="ue-drawer app-hidden" id="ueDrawer" aria-label="Team costs drawer">
+      <div class="ue-drawer-header">
+        <h2>Input Team Costs</h2>
+        <button type="button" class="ue-drawer-close" id="ueDrawerClose" aria-label="Close team costs drawer">&times;</button>
+      </div>
+      <div class="ue-drawer-body">
+        <section class="teams-section">
+          <div class="teams-section-header">
+            <h2>Team Costs</h2>
+          </div>
+          <div id="unitEconomicsTeamsContainer">
+            <!-- Per-team period tables rendered by app.js -->
+          </div>
+        </section>
+      </div>
+    </aside>
 
     <!-- Cost Distribution Chart -->
     <section class="chart-section">

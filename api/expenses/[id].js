@@ -70,6 +70,10 @@ module.exports = async function handler(req, res) {
     res.status(401).json({ error: 'Unauthorized' });
     return;
   }
+  if (user.denied) {
+    res.status(403).json({ error: 'Access denied' });
+    return;
+  }
   const id = getIdFromRequest(req);
   if (!id) {
     res.status(400).json({ error: 'Invalid expense id' });

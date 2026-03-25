@@ -499,21 +499,40 @@ function renderUnitEconomicsGrid() {
       const respVal = data.numResponses !== undefined && data.numResponses !== '' ? Number(data.numResponses) : '';
       const hcVal = data.headcount !== undefined && data.headcount !== '' ? Number(data.headcount) : '';
       const salVal = data.totalSalary !== undefined && data.totalSalary !== '' ? Number(data.totalSalary) : '';
+      const idBase = `ue-${team.id}-${ym.replace(/[^a-zA-Z0-9]/g, '')}`;
       rows += `
-        <div class="ue-grid-row ue-grid-month-row" data-ym="${ym}">
-          <div class="ue-grid-cell ue-month-label">${periodLabel}</div>
-          <div class="ue-grid-cell"><input type="number" data-team="${team.id}" data-month="${ym}" data-field="numProjects" min="0" step="1" placeholder="0" value="${projVal}"></div>
-          <div class="ue-grid-cell"><input type="number" data-team="${team.id}" data-month="${ym}" data-field="numResponses" min="0" step="1" placeholder="0" value="${respVal}"></div>
-          <div class="ue-grid-cell"><input type="number" data-team="${team.id}" data-month="${ym}" data-field="headcount" min="0" step="1" placeholder="0" value="${hcVal}"></div>
-          <div class="ue-grid-cell"><input type="number" data-team="${team.id}" data-month="${ym}" data-field="totalSalary" min="0" step="0.01" placeholder="0" value="${salVal}"></div>
-          <div class="ue-grid-cell ue-avg-cell">${hc > 0 ? formatCurrency(avgPerPerson) : '—'}</div>
-          <div class="ue-grid-cell ue-other-cell"><span class="ue-other-sum">${formatCurrency(other)}</span></div>
-          <div class="ue-grid-cell ue-actions-cell">
+        <div class="ue-month-card" data-ym="${ym}">
+          <div class="ue-month-card-header">
+            <span class="ue-month-card-title">${escapeHtml(periodLabel)}</span>
             <button type="button" class="btn btn-row-action btn-delete ue-remove-period" data-team="${team.id}" data-month="${ym}" aria-label="Remove period">Remove</button>
           </div>
-        </div>
-        <div class="ue-grid-row ue-grid-sub-row" data-ym="${ym}" data-team="${team.id}">
-          <div class="ue-grid-cell ue-detail-cell">
+          <div class="ue-month-card-fields">
+            <div class="ue-field">
+              <label for="${idBase}-proj">Projects</label>
+              <input id="${idBase}-proj" type="number" data-team="${team.id}" data-month="${ym}" data-field="numProjects" min="0" step="1" placeholder="0" value="${projVal}">
+            </div>
+            <div class="ue-field">
+              <label for="${idBase}-resp">Response Groups</label>
+              <input id="${idBase}-resp" type="number" data-team="${team.id}" data-month="${ym}" data-field="numResponses" min="0" step="1" placeholder="0" value="${respVal}">
+            </div>
+            <div class="ue-field">
+              <label for="${idBase}-hc">Headcount</label>
+              <input id="${idBase}-hc" type="number" data-team="${team.id}" data-month="${ym}" data-field="headcount" min="0" step="1" placeholder="0" value="${hcVal}">
+            </div>
+            <div class="ue-field">
+              <label for="${idBase}-sal">Payroll COGS ($)</label>
+              <input id="${idBase}-sal" type="number" data-team="${team.id}" data-month="${ym}" data-field="totalSalary" min="0" step="0.01" placeholder="0" value="${salVal}">
+            </div>
+            <div class="ue-field ue-field-readonly">
+              <label>Avg per person</label>
+              <span class="ue-field-value ue-avg-cell">${hc > 0 ? formatCurrency(avgPerPerson) : '—'}</span>
+            </div>
+            <div class="ue-field ue-field-readonly">
+              <label>Other</label>
+              <span class="ue-field-value ue-other-sum">${formatCurrency(other)}</span>
+            </div>
+          </div>
+          <div class="ue-month-card-expenses">
             <div class="ue-expenses-block">
               <span class="line-items-title">Other expenses</span>
               ${renderInlineLineItems(team.id, ym)}
@@ -531,32 +550,20 @@ function renderUnitEconomicsGrid() {
         </button>
       </div>
       <div id="${sectionId}" class="ue-section-body" ${expanded ? '' : 'hidden'}>
-        <div class="table-wrapper">
-          <div class="ue-grid">
-            <div class="ue-grid-row ue-grid-header">
-              <div class="ue-grid-cell">Month</div>
-              <div class="ue-grid-cell">Projects</div>
-              <div class="ue-grid-cell">Response Groups</div>
-              <div class="ue-grid-cell">Headcount</div>
-              <div class="ue-grid-cell">Payroll COGS ($)</div>
-              <div class="ue-grid-cell">Avg per person</div>
-              <div class="ue-grid-cell">Other</div>
-              <div class="ue-grid-cell"></div>
-            </div>
+        <div class="table-wrapper ue-team-periods">
+          <div class="ue-month-cards-stack">
             ${rows}
-            <div class="ue-grid-row ue-grid-footer">
-              <div class="ue-grid-cell ue-add-period-cell">
-                <div class="ue-add-period-wrap">
-                  <label for="ue-month-${team.id}">Add period</label>
-                  <select id="ue-month-${team.id}" class="ue-period-month" data-team="${team.id}" aria-label="Month">
-                    ${MONTH_LABELS.map((name, i) => `<option value="${String(i + 1).padStart(2, '0')}">${name}</option>`).join('')}
-                  </select>
-                  <select class="ue-period-year" data-team="${team.id}" aria-label="Year">
-                    ${yearOptions.map((y) => `<option value="${y}"${y === currentYear ? ' selected' : ''}>${y}</option>`).join('')}
-                  </select>
-                  <button type="button" class="btn btn-small btn-compact btn-secondary ue-add-period-btn" data-team="${team.id}">Add month</button>
-                </div>
-              </div>
+          </div>
+          <div class="ue-add-period-footer">
+            <div class="ue-add-period-wrap">
+              <label for="ue-month-${team.id}">Add period</label>
+              <select id="ue-month-${team.id}" class="ue-period-month" data-team="${team.id}" aria-label="Month">
+                ${MONTH_LABELS.map((name, i) => `<option value="${String(i + 1).padStart(2, '0')}">${name}</option>`).join('')}
+              </select>
+              <select class="ue-period-year" data-team="${team.id}" aria-label="Year">
+                ${yearOptions.map((y) => `<option value="${y}"${y === currentYear ? ' selected' : ''}>${y}</option>`).join('')}
+              </select>
+              <button type="button" class="btn btn-small btn-compact btn-secondary ue-add-period-btn" data-team="${team.id}">Add month</button>
             </div>
           </div>
         </div>
@@ -659,9 +666,9 @@ function handleLineItemChangeInline(e) {
     item.amount = parseNumericInput(e.target.value);
   }
   saveUnitEconomicsToStorage();
-  const row = e.target.closest('.ue-grid-sub-row');
-  if (row) {
-    const sumEl = row.closest('.ue-team-section').querySelector(`.ue-grid-month-row[data-ym="${ym}"] .ue-other-sum`);
+  const card = e.target.closest('.ue-month-card');
+  if (card) {
+    const sumEl = card.querySelector('.ue-other-sum');
     if (sumEl) sumEl.textContent = formatCurrency(getLineItemsTotal(teamId, ym));
   }
   recalculate();
@@ -697,12 +704,12 @@ function handleGridInput(e) {
   ensureMonthData(month);
   state.unitEconomics.months[month][team][field] = parseNumericInput(e.target.value);
   saveUnitEconomicsToStorage();
-  const row = e.target.closest('.ue-grid-month-row');
-  if (row) {
+  const card = e.target.closest('.ue-month-card');
+  if (card) {
     const data = getMonthDataFor(team, month);
     const totalSalary = Number(data.totalSalary) || 0;
     const hc = Number(data.headcount) || 0;
-    const avgCell = row.querySelector('.ue-avg-cell');
+    const avgCell = card.querySelector('.ue-avg-cell');
     if (avgCell) avgCell.textContent = hc > 0 ? formatCurrency(totalSalary / hc) : '—';
   }
   recalculate();

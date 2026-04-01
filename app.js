@@ -294,14 +294,23 @@ function applyUnitEconomicsPayload(parsed) {
 
 let teamCostsSaveTimer = null;
 let teamCostsDirty = false;
+let teamCostsMutationVersion = 0;
+let teamCostsLoadSerial = 0;
+let teamCostsSaveInFlight = null;
+let teamCostsSaveQueued = false;
 const TEAM_COSTS_SAVE_DEBOUNCE_MS = 800;
 
-function schedulePersistTeamCosts() {
+function markTeamCostsDirty() {
   teamCostsDirty = true;
+  teamCostsMutationVersion += 1;
+}
+
+function schedulePersistTeamCosts() {
+  markTeamCostsDirty();
   if (teamCostsSaveTimer) clearTimeout(teamCostsSaveTimer);
   teamCostsSaveTimer = setTimeout(() => {
     teamCostsSaveTimer = null;
-    flushTeamCostsToServer();
+    void flushTeamCostsToServer();
   }, TEAM_COSTS_SAVE_DEBOUNCE_MS);
 }
 
@@ -1257,29 +1266,53 @@ async function flushTeamCostsToServer() {
     clearTimeout(teamCostsSaveTimer);
     teamCostsSaveTimer = null;
   }
+  if (!teamCostsDirty && !teamCostsSaveQueued) return teamCostsSaveInFlight;
+  if (teamCostsSaveInFlight) {
+    teamCostsSaveQueued = true;
+    return teamCostsSaveInFlight;
+  }
   const token = getAuthToken();
   if (!token) return;
-  const res = await apiFetch('/api/team-costs', {
-    method: 'PUT',
-    body: JSON.stringify({ unitEconomics: state.unitEconomics }),
-  });
-  if (!res || !res.ok) {
-    if (res && res.status !== 401 && res.status !== 403) {
-      let msg = 'Could not save team costs';
-      if (res.status === 503) {
-        try {
-          const data = await res.json();
-          if (data.code === 'GOOGLE_CLIENT_ID_MISSING') msg = 'Sign-in not configured. Set GOOGLE_CLIENT_ID in Vercel.';
-          else if (data.code === 'FIRESTORE_NOT_CONFIGURED') msg = 'Database not configured. Add FIREBASE_SERVICE_ACCOUNT_JSON in Vercel (see README).';
-          else if (data.code === 'FIRESTORE_INVALID_JSON') msg = 'Invalid Firebase JSON in Vercel.';
-          else msg = 'Server configuration error. Check Vercel env and logs.';
-        } catch (_) {}
-      } else if (res.status >= 500) msg = 'Server error while saving team costs.';
-      showToast(msg);
+  const saveVersion = teamCostsMutationVersion;
+  const requestBody = JSON.stringify({ unitEconomics: state.unitEconomics });
+  teamCostsSaveQueued = false;
+  teamCostsSaveInFlight = (async () => {
+    const res = await apiFetch('/api/team-costs', {
+      method: 'PUT',
+      body: requestBody,
+    });
+    if (!res || !res.ok) {
+      if (res && res.status !== 401 && res.status !== 403) {
+        let msg = 'Could not save team costs';
+        if (res.status === 503) {
+          try {
+            const data = await res.json();
+            if (data.code === 'GOOGLE_CLIENT_ID_MISSING') msg = 'Sign-in not configured. Set GOOGLE_CLIENT_ID in Vercel.';
+            else if (data.code === 'FIRESTORE_NOT_CONFIGURED') msg = 'Database not configured. Add FIREBASE_SERVICE_ACCOUNT_JSON in Vercel (see README).';
+            else if (data.code === 'FIRESTORE_INVALID_JSON') msg = 'Invalid Firebase JSON in Vercel.';
+            else msg = 'Server configuration error. Check Vercel env and logs.';
+          } catch (_) {}
+        } else if (res.status >= 500) msg = 'Server error while saving team costs.';
+        showToast(msg);
+      }
+      return false;
     }
-    return;
+    if (teamCostsMutationVersion === saveVersion) {
+      teamCostsDirty = false;
+    } else {
+      teamCostsSaveQueued = true;
+    }
+    return true;
+  })();
+  const currentSave = teamCostsSaveInFlight;
+  const succeeded = await currentSave;
+  if (teamCostsSaveInFlight === currentSave) {
+    teamCostsSaveInFlight = null;
   }
-  teamCostsDirty = false;
+  if (succeeded && (teamCostsDirty || teamCostsSaveQueued) && getAuthToken()) {
+    void flushTeamCostsToServer();
+  }
+  return currentSave;
 }
 
 function showTeamCostsLoading(show) {
@@ -1310,6 +1343,8 @@ async function showTeamCostsLoadErrorToast(res) {
 }
 
 async function loadTeamCostsFromServer() {
+  const loadSerial = ++teamCostsLoadSerial;
+  const mutationVersionAtStart = teamCostsMutationVersion;
   resetUnitEconomicsState();
   const res = await apiFetch('/api/team-costs');
   if (!res || !res.ok) {
@@ -1323,6 +1358,9 @@ async function loadTeamCostsFromServer() {
     data = await res.json();
   } catch (_) {
     showToast('Could not load team costs (invalid response).');
+    return;
+  }
+  if (loadSerial !== teamCostsLoadSerial || teamCostsMutationVersion !== mutationVersionAtStart) {
     return;
   }
   if (data.unitEconomics && typeof data.unitEconomics === 'object') {

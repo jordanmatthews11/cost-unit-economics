@@ -32,9 +32,20 @@ The Bills tab uses Vercel serverless API + **Firestore** (database) + optional f
 
 Local dev: run `npm install` and `vercel dev`; use `vercel env pull` to get env vars.
 
+## Unit Economics / Team Costs (backend)
+
+**Team Costs** (the “Input Team Costs” drawer) is **saved to Firestore per signed-in user**, not in the browser alone. The same Vercel environment as Bills applies:
+
+- **`GOOGLE_CLIENT_ID`** — must match the Web client ID in `app.js`.
+- **`FIREBASE_SERVICE_ACCOUNT_JSON`** — same Firestore project as Bills.
+
+Data is stored under the Firestore collection **`team_costs`**, one document per user (document id = Google `sub`). The document holds a `unit_economics` field with your periods, monthly inputs, and line items. Edits are **debounced** (not every keystroke) and flushed when you close the drawer, sign out, or leave the page when possible.
+
+Older **browser-only** Team Costs in `localStorage` are **not** migrated automatically; new installs load from the server (empty until you save).
+
 ### Firestore setup
 
-Do this once. No SQL—Firestore creates the `expenses` collection when the app first writes data.
+Do this once. No SQL—Firestore creates the `expenses` and `team_costs` collections when the app first writes data.
 
 **Step 1: Open Firebase** — Go to [Firebase Console](https://console.firebase.google.com/). Sign in with your Google account.
 
@@ -60,6 +71,7 @@ For **Value**, paste the entire JSON file contents. If the field truncates your 
 
 - **"Could not load existing expenses" or 401 Unauthorized**: Set `GOOGLE_CLIENT_ID` in Vercel (Project → Settings → Environment Variables) to the **exact same** value as in `app.js` (the Web client ID). Apply to Production and, if you use preview URLs, to Preview. Then redeploy.
 - **500 when loading or saving expenses**: Ensure Firestore is set up (see [Firestore setup](#firestore-setup)) and `FIREBASE_SERVICE_ACCOUNT_JSON` is set in Vercel. Redeploy after changing env.
+- **Could not load/save team costs** (Unit Economics): Same as above—`GOOGLE_CLIENT_ID` and `FIREBASE_SERVICE_ACCOUNT_JSON` must be set for the Team Costs API (`GET`/`PUT` `/api/team-costs`).
 - If you see a 503 toast with "Sign-in not configured" or "Database not configured", set the indicated env variable in Vercel (e.g. `GOOGLE_CLIENT_ID` or `FIREBASE_SERVICE_ACCOUNT_JSON`) and redeploy.
 
 ## Teams
@@ -70,7 +82,7 @@ For **Value**, paste the entire JSON file contents. If the field truncates your 
 
 ## How to Use
 
-- **Unit Economics tab**: Enter Projects and Response Groups per team, then cost data (headcount, salary, tools, overhead). Results and cost-per-project / cost-per-response-group update in real time. Export as CSV or Copy Summary.
+- **Unit Economics tab**: Enter Projects and Response Groups per team, then cost data (headcount, salary, tools, overhead). Results and cost-per-project / cost-per-response-group update in real time. Team Costs are **synced to your account** when signed in (see [Unit Economics / Team Costs (backend)](#unit-economics--team-costs-backend)). Export as CSV or Copy Summary.
 - **Bills & Expenses tab**: Add expenses with vendor, amount, date, status, category, notes, and optional PDFs (internal bill and 3rd party invoice). Filter by status/category; edit or delete entries; attach files when adding or later via Edit.
 
 ## Get a public URL
@@ -89,4 +101,4 @@ Cost per Response Group = Grand Total / Total Response Groups
 ## Dependencies
 
 - Frontend: none (vanilla HTML/CSS/JS).
-- Backend (Bills): `firebase-admin`, `@vercel/blob`, `google-auth-library`, `busboy` (see `package.json`). Run `npm install` for local API dev.
+- Backend (Bills + Team Costs API): `firebase-admin`, `@vercel/blob`, `google-auth-library`, `busboy` (see `package.json`). Run `npm install` for local API dev.

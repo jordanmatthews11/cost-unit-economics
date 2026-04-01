@@ -53,6 +53,16 @@ body {
   display: none !important;
 }
 
+.team-costs-sync-banner {
+  margin: 0 0 1rem;
+  padding: 0.65rem 1rem;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  background: rgba(109, 54, 255, 0.08);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
 /* ---- Login ---- */
 
 .login-container {

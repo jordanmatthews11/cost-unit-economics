@@ -66,7 +66,7 @@ function showApp(user) {
   if (emailEl) emailEl.textContent = user.email || 'Signed in';
   document.getElementById('signOutBtn').addEventListener('click', handleSignOut);
   setupTabs();
-  initCalculator();
+  void initCalculator();
 }
 
 function renderGoogleButton() {
@@ -99,7 +99,8 @@ function handleCredentialResponse(response) {
   showApp(user);
 }
 
-function handleSignOut() {
+async function handleSignOut() {
+  await flushTeamCostsToServer();
   if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
     google.accounts.id.disableAutoSelect();
   }
@@ -186,7 +187,6 @@ const COST_FIELDS = [
   { key: 'totalSalary', label: 'Payroll COGS ($)', placeholder: 'e.g. 475000', step: '0.01' },
 ];
 
-const UNIT_ECONOMICS_STORAGE_KEY = 'cost_unit_economics_monthly';
 const MONTH_LABELS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 function getCurrentMonthString() {
@@ -253,41 +253,61 @@ function getMonthDataFor(teamId, ym) {
   return state.unitEconomics.months[ym][teamId] || getDefaultTeamMonthData();
 }
 
-function loadUnitEconomicsFromStorage() {
-  try {
-    const raw = localStorage.getItem(UNIT_ECONOMICS_STORAGE_KEY);
-    if (!raw) return;
-    const parsed = JSON.parse(raw);
-    if (parsed.currentMonth) state.unitEconomics.currentMonth = parsed.currentMonth;
-    if (parsed.currentYear != null) state.unitEconomics.currentYear = Number(parsed.currentYear) || new Date().getFullYear();
-    if (parsed.months && typeof parsed.months === 'object') {
-      state.unitEconomics.months = parsed.months;
-      Object.keys(state.unitEconomics.months).forEach((m) => ensureMonthData(m));
-    }
-    if (parsed.sectionsExpanded && typeof parsed.sectionsExpanded === 'object') {
-      state.unitEconomics.sectionsExpanded = parsed.sectionsExpanded;
-    }
-    if (parsed.teamPeriods && typeof parsed.teamPeriods === 'object') {
-      state.unitEconomics.teamPeriods = parsed.teamPeriods;
-    } else {
-      const year = state.unitEconomics.currentYear;
-      const fallbackKeys = getYearMonthKeys(year);
-      TEAMS.forEach((team) => {
-        const existing = [];
-        Object.keys(state.unitEconomics.months || {}).forEach((ym) => {
-          const t = state.unitEconomics.months[ym] && state.unitEconomics.months[ym][team.id];
-          if (t && typeof t === 'object') existing.push(ym);
-        });
-        state.unitEconomics.teamPeriods[team.id] = existing.length > 0 ? [...new Set(existing)].sort() : [...fallbackKeys];
-      });
-    }
-  } catch (_) {}
+/** Reset client state to defaults (used before applying server payload or on failed load). */
+function resetUnitEconomicsState() {
+  state.unitEconomics = {
+    currentMonth: getCurrentMonthString(),
+    currentYear: new Date().getFullYear(),
+    months: {},
+    teamPeriods: {},
+    sectionsExpanded: {},
+  };
 }
 
+/** Apply a persisted unitEconomics object from the server (same shape as state.unitEconomics). */
+function applyUnitEconomicsPayload(parsed) {
+  if (!parsed || typeof parsed !== 'object') return;
+  if (parsed.currentMonth) state.unitEconomics.currentMonth = parsed.currentMonth;
+  if (parsed.currentYear != null) state.unitEconomics.currentYear = Number(parsed.currentYear) || new Date().getFullYear();
+  if (parsed.months && typeof parsed.months === 'object') {
+    state.unitEconomics.months = parsed.months;
+    Object.keys(state.unitEconomics.months).forEach((m) => ensureMonthData(m));
+  }
+  if (parsed.sectionsExpanded && typeof parsed.sectionsExpanded === 'object') {
+    state.unitEconomics.sectionsExpanded = parsed.sectionsExpanded;
+  }
+  if (parsed.teamPeriods && typeof parsed.teamPeriods === 'object') {
+    state.unitEconomics.teamPeriods = parsed.teamPeriods;
+  } else {
+    const year = state.unitEconomics.currentYear;
+    const fallbackKeys = getYearMonthKeys(year);
+    TEAMS.forEach((team) => {
+      const existing = [];
+      Object.keys(state.unitEconomics.months || {}).forEach((ym) => {
+        const t = state.unitEconomics.months[ym] && state.unitEconomics.months[ym][team.id];
+        if (t && typeof t === 'object') existing.push(ym);
+      });
+      state.unitEconomics.teamPeriods[team.id] = existing.length > 0 ? [...new Set(existing)].sort() : [...fallbackKeys];
+    });
+  }
+}
+
+let teamCostsSaveTimer = null;
+let teamCostsDirty = false;
+const TEAM_COSTS_SAVE_DEBOUNCE_MS = 800;
+
+function schedulePersistTeamCosts() {
+  teamCostsDirty = true;
+  if (teamCostsSaveTimer) clearTimeout(teamCostsSaveTimer);
+  teamCostsSaveTimer = setTimeout(() => {
+    teamCostsSaveTimer = null;
+    flushTeamCostsToServer();
+  }, TEAM_COSTS_SAVE_DEBOUNCE_MS);
+}
+
+/** Persists Team Costs to Firestore via API (debounced). */
 function saveUnitEconomicsToStorage() {
-  try {
-    localStorage.setItem(UNIT_ECONOMICS_STORAGE_KEY, JSON.stringify(state.unitEconomics));
-  } catch (_) {}
+  schedulePersistTeamCosts();
 }
 
 // ---- Helpers ----
@@ -1131,6 +1151,84 @@ async function apiFetch(path, options = {}) {
     return { ok: false, status: 403 };
   }
   return res;
+}
+
+async function flushTeamCostsToServer() {
+  if (teamCostsSaveTimer) {
+    clearTimeout(teamCostsSaveTimer);
+    teamCostsSaveTimer = null;
+  }
+  const token = getAuthToken();
+  if (!token) return;
+  const res = await apiFetch('/api/team-costs', {
+    method: 'PUT',
+    body: JSON.stringify({ unitEconomics: state.unitEconomics }),
+  });
+  if (!res || !res.ok) {
+    if (res && res.status !== 401 && res.status !== 403) {
+      let msg = 'Could not save team costs';
+      if (res.status === 503) {
+        try {
+          const data = await res.json();
+          if (data.code === 'GOOGLE_CLIENT_ID_MISSING') msg = 'Sign-in not configured. Set GOOGLE_CLIENT_ID in Vercel.';
+          else if (data.code === 'FIRESTORE_NOT_CONFIGURED') msg = 'Database not configured. Add FIREBASE_SERVICE_ACCOUNT_JSON in Vercel (see README).';
+          else if (data.code === 'FIRESTORE_INVALID_JSON') msg = 'Invalid Firebase JSON in Vercel.';
+          else msg = 'Server configuration error. Check Vercel env and logs.';
+        } catch (_) {}
+      } else if (res.status >= 500) msg = 'Server error while saving team costs.';
+      showToast(msg);
+    }
+    return;
+  }
+  teamCostsDirty = false;
+}
+
+function showTeamCostsLoading(show) {
+  const el = document.getElementById('teamCostsSyncBanner');
+  if (!el) return;
+  if (show) {
+    el.textContent = 'Loading team costs from server…';
+    el.classList.remove('app-hidden');
+  } else {
+    el.classList.add('app-hidden');
+    el.textContent = '';
+  }
+}
+
+async function showTeamCostsLoadErrorToast(res) {
+  let msg = 'Could not load team costs';
+  if (res.status === 401) msg = 'Sign-in expired or invalid. Try signing out and back in.';
+  else if (res.status === 503) {
+    try {
+      const data = await res.json();
+      if (data.code === 'GOOGLE_CLIENT_ID_MISSING') msg = 'Sign-in not configured. Set GOOGLE_CLIENT_ID in Vercel.';
+      else if (data.code === 'FIRESTORE_NOT_CONFIGURED') msg = 'Database not configured. Add FIREBASE_SERVICE_ACCOUNT_JSON in Vercel (see README).';
+      else if (data.code === 'FIRESTORE_INVALID_JSON') msg = 'Invalid Firebase JSON in Vercel.';
+      else msg = 'Server configuration error. Check Vercel env and logs.';
+    } catch (_) {}
+  } else if (res.status >= 500) msg = 'Server configuration error. Check Vercel env and logs.';
+  showToast(msg);
+}
+
+async function loadTeamCostsFromServer() {
+  resetUnitEconomicsState();
+  const res = await apiFetch('/api/team-costs');
+  if (!res || !res.ok) {
+    if (res && res.status !== 401 && res.status !== 403) {
+      await showTeamCostsLoadErrorToast(res);
+    }
+    return;
+  }
+  let data;
+  try {
+    data = await res.json();
+  } catch (_) {
+    showToast('Could not load team costs (invalid response).');
+    return;
+  }
+  if (data.unitEconomics && typeof data.unitEconomics === 'object') {
+    applyUnitEconomicsPayload(data.unitEconomics);
+  }
 }
 
 let billsInitialized = false;
@@ -2101,6 +2199,7 @@ function openTeamCostsDrawer() {
 }
 
 function closeTeamCostsDrawer() {
+  void flushTeamCostsToServer();
   const drawer = document.getElementById('ueDrawer');
   const overlay = document.getElementById('ueDrawerOverlay');
   if (!drawer || !overlay) return;
@@ -2114,23 +2213,51 @@ function closeTeamCostsDrawer() {
 
 // ---- Initialize ----
 
-function initCalculator() {
-  loadUnitEconomicsFromStorage();
+let ueCalculatorListenersBound = false;
+let ueTeamCostsPagehideBound = false;
+
+async function initCalculator() {
+  showTeamCostsLoading(true);
+  try {
+    await loadTeamCostsFromServer();
+  } finally {
+    showTeamCostsLoading(false);
+  }
   renderUnitEconomicsGrid();
   recalculate();
-  document.getElementById('exportCsv').addEventListener('click', exportCSV);
-  document.getElementById('copyClipboard').addEventListener('click', copySummary);
-  const openBtn = document.getElementById('ueOpenDrawerBtn');
-  const closeBtn = document.getElementById('ueDrawerClose');
-  const overlay = document.getElementById('ueDrawerOverlay');
-  if (openBtn) {
-    openBtn.addEventListener('click', openTeamCostsDrawer);
+  if (!ueCalculatorListenersBound) {
+    ueCalculatorListenersBound = true;
+    document.getElementById('exportCsv').addEventListener('click', exportCSV);
+    document.getElementById('copyClipboard').addEventListener('click', copySummary);
+    const openBtn = document.getElementById('ueOpenDrawerBtn');
+    const closeBtn = document.getElementById('ueDrawerClose');
+    const overlay = document.getElementById('ueDrawerOverlay');
+    if (openBtn) {
+      openBtn.addEventListener('click', openTeamCostsDrawer);
+    }
+    if (closeBtn) {
+      closeBtn.addEventListener('click', closeTeamCostsDrawer);
+    }
+    if (overlay) {
+      overlay.addEventListener('click', closeTeamCostsDrawer);
+    }
   }
-  if (closeBtn) {
-    closeBtn.addEventListener('click', closeTeamCostsDrawer);
-  }
-  if (overlay) {
-    overlay.addEventListener('click', closeTeamCostsDrawer);
+  if (!ueTeamCostsPagehideBound) {
+    ueTeamCostsPagehideBound = true;
+    window.addEventListener('pagehide', () => {
+      if (teamCostsSaveTimer) clearTimeout(teamCostsSaveTimer);
+      const token = getAuthToken();
+      if (!token || !teamCostsDirty) return;
+      fetch('/api/team-costs', {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ unitEconomics: state.unitEconomics }),
+        keepalive: true,
+      }).catch(() => {});
+    });
   }
 }
 

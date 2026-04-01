@@ -1057,6 +1057,105 @@ function exportCSV() {
   showToast('CSV exported successfully');
 }
 
+function parsePeriodLabelToYm(label) {
+  const trimmed = String(label || '').trim();
+  if (!trimmed || trimmed === '(all)') return '';
+  const match = trimmed.match(/^([A-Za-z]+)\s+(\d{4})$/);
+  if (!match) return '';
+  const monthIdx = MONTH_LABELS.findIndex((name) => name.toLowerCase() === match[1].toLowerCase());
+  if (monthIdx < 0) return '';
+  return `${match[2]}-${String(monthIdx + 1).padStart(2, '0')}`;
+}
+
+function parseCsvNumber(value) {
+  const num = parseFloat(String(value || '').replace(/[^0-9.-]/g, ''));
+  return Number.isFinite(num) ? num : 0;
+}
+
+async function importUnitEconomicsFromCsv(file) {
+  if (!file) return;
+  if (!confirm('Importing this CSV will replace the current Team Costs data for your account. Continue?')) return;
+
+  let text = '';
+  try {
+    text = await file.text();
+  } catch (_) {
+    showToast('Could not read CSV file');
+    return;
+  }
+
+  const lines = text.split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length < 2) {
+    showToast('CSV is empty or missing data rows');
+    return;
+  }
+
+  const header = parseCsvLine(lines[0]);
+  const headerMap = {};
+  header.forEach((name, idx) => {
+    headerMap[headerKey(name)] = idx;
+  });
+  const requiredHeaders = ['team', 'period', 'team cost', 'projects', 'response groups'];
+  const missing = requiredHeaders.filter((name) => headerMap[name] == null);
+  if (missing.length > 0) {
+    showToast(`CSV is missing required columns: ${missing.join(', ')}`);
+    return;
+  }
+
+  const rows = [];
+  const teamNameToId = Object.fromEntries(TEAMS.map((team) => [team.name.toLowerCase(), team.id]));
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCsvLine(lines[i]);
+    const teamName = String(cols[headerMap['team']] || '').trim();
+    const periodLabel = String(cols[headerMap['period']] || '').trim();
+    if (!teamName || !periodLabel || teamName.toLowerCase() === 'total' || periodLabel === '(all)') continue;
+    const teamId = teamNameToId[teamName.toLowerCase()];
+    const ym = parsePeriodLabelToYm(periodLabel);
+    if (!teamId || !ym) continue;
+    rows.push({
+      teamId,
+      ym,
+      totalSalary: parseCsvNumber(cols[headerMap['team cost']]),
+      numProjects: Math.round(parseCsvNumber(cols[headerMap['projects']])),
+      numResponses: Math.round(parseCsvNumber(cols[headerMap['response groups']])),
+    });
+  }
+
+  if (rows.length === 0) {
+    showToast('No monthly Team Costs rows were found in this CSV');
+    return;
+  }
+
+  resetUnitEconomicsState();
+  rows.forEach((row) => {
+    ensureMonthData(row.ym);
+    const data = state.unitEconomics.months[row.ym][row.teamId];
+    data.totalSalary = row.totalSalary;
+    data.numProjects = row.numProjects;
+    data.numResponses = row.numResponses;
+    data.headcount = Number(data.headcount) || 0;
+    data.lineItems = Array.isArray(data.lineItems) ? data.lineItems : [];
+    if (!state.unitEconomics.teamPeriods[row.teamId]) state.unitEconomics.teamPeriods[row.teamId] = [];
+    if (!state.unitEconomics.teamPeriods[row.teamId].includes(row.ym)) {
+      state.unitEconomics.teamPeriods[row.teamId].push(row.ym);
+      state.unitEconomics.teamPeriods[row.teamId].sort();
+    }
+  });
+
+  const latestYm = rows.map((row) => row.ym).sort().slice(-1)[0];
+  if (latestYm) {
+    state.unitEconomics.currentMonth = latestYm;
+    state.unitEconomics.currentYear = Number(latestYm.slice(0, 4)) || new Date().getFullYear();
+  }
+
+  renderUnitEconomicsGrid();
+  recalculate();
+  saveUnitEconomicsToStorage();
+  void flushTeamCostsToServer();
+  openTeamCostsDrawer();
+  showToast(`Imported ${rows.length} rows. Headcount and other expenses were not included in the CSV and remain 0.`);
+}
+
 function copySummary() {
   const grandTotal = getYearGrandTotal();
   const totalProjects = getYearTotalProjects();
@@ -2229,9 +2328,21 @@ async function initCalculator() {
     ueCalculatorListenersBound = true;
     document.getElementById('exportCsv').addEventListener('click', exportCSV);
     document.getElementById('copyClipboard').addEventListener('click', copySummary);
+    const importCsvBtn = document.getElementById('ueImportCsvBtn');
+    const csvInput = document.getElementById('ueCsvInput');
     const openBtn = document.getElementById('ueOpenDrawerBtn');
     const closeBtn = document.getElementById('ueDrawerClose');
     const overlay = document.getElementById('ueDrawerOverlay');
+    if (importCsvBtn && csvInput) {
+      importCsvBtn.addEventListener('click', () => csvInput.click());
+      csvInput.addEventListener('change', function () {
+        const file = this.files && this.files[0];
+        if (file) {
+          void importUnitEconomicsFromCsv(file);
+          this.value = '';
+        }
+      });
+    }
     if (openBtn) {
       openBtn.addEventListener('click', openTeamCostsDrawer);
     }
